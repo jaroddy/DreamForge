@@ -204,6 +204,11 @@ NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=your_stripe_publishable_key
 - SQL injection protection
 - XSS protection
 
+### Known Security Considerations
+- **Session Storage**: Currently uses localStorage for session IDs. For production deployment, migrate to httpOnly cookies for better XSS protection.
+- **API Keys**: All sensitive keys are stored in backend environment variables, never exposed to frontend.
+- **HTTPS**: Ensure SSL/TLS is enabled in production to protect data in transit.
+
 ## Scaling Guide
 
 ### Horizontal Scaling

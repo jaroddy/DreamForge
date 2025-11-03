@@ -6,6 +6,8 @@ import { useFileUrl } from '../context/fileUrlContext';
 import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 
+const FILENAME_MAX_LENGTH = 30;
+
 const MyModelsPage = () => {
     const router = useRouter();
     const { setFileData } = useFileUrl();
@@ -48,7 +50,7 @@ const MyModelsPage = () => {
                         fileUrl: modelUrl,
                         meshyTaskId: model.task_id,
                         meshyData: taskData,
-                        filename: `${model.prompt?.substring(0, 30).replace(/\s+/g, '_') || 'model'}.glb`,
+                        filename: `${model.prompt?.substring(0, FILENAME_MAX_LENGTH).replace(/\s+/g, '_') || 'model'}.glb`,
                         isMeshyModel: true
                     });
                     router.push('/refine');
@@ -62,7 +64,7 @@ const MyModelsPage = () => {
                 setFileData({
                     fileUrl: model.model_url,
                     meshyTaskId: model.task_id,
-                    filename: `${model.prompt?.substring(0, 30).replace(/\s+/g, '_') || 'model'}.glb`,
+                    filename: `${model.prompt?.substring(0, FILENAME_MAX_LENGTH).replace(/\s+/g, '_') || 'model'}.glb`,
                     isMeshyModel: true
                 });
                 router.push('/refine');

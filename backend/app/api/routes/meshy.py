@@ -171,8 +171,10 @@ async def get_task(
                     model_urls = result["model_urls"]
                     if "glb" in model_urls:
                         update_data["model_url"] = model_urls["glb"]
-                    if "fbx" in model_urls:
-                        update_data["texture_url"] = model_urls.get("base_color", "")
+                if result.get("texture_urls"):
+                    texture_urls = result["texture_urls"]
+                    if "base_color" in texture_urls:
+                        update_data["texture_url"] = texture_urls["base_color"]
             
             await db.execute(
                 update(MeshyTask)

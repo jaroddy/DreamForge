@@ -13,11 +13,15 @@ class ApiService {
         });
         
         // Add request interceptor to include session ID
+        // NOTE: Using localStorage for session management. In production,
+        // consider using httpOnly cookies for better XSS protection
         this.client.interceptors.request.use(
             (config) => {
-                const sessionId = localStorage.getItem('session_id');
-                if (sessionId) {
-                    config.headers['X-Session-ID'] = sessionId;
+                if (typeof window !== 'undefined') {
+                    const sessionId = localStorage.getItem('session_id');
+                    if (sessionId) {
+                        config.headers['X-Session-ID'] = sessionId;
+                    }
                 }
                 return config;
             },

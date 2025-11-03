@@ -26,7 +26,7 @@ const RefinePage = () => {
             toast.error('No model data found. Please generate a model first.');
             router.push('/generate');
         }
-    }, []);
+    }, [fileData, router]);
 
     const handleRefine = async () => {
         if (!fileData?.meshyTaskId) {

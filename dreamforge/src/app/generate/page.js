@@ -6,6 +6,8 @@ import { useFileUrl } from '../context/fileUrlContext';
 import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 
+const FILENAME_MAX_LENGTH = 30;
+
 const GeneratePage = () => {
     const router = useRouter();
     const { setFileData } = useFileUrl();
@@ -58,7 +60,7 @@ const GeneratePage = () => {
                         fileUrl: completedTask.model_urls?.glb || completedTask.model_urls?.obj || '',
                         meshyTaskId: result.task_id,
                         meshyData: completedTask,
-                        filename: `${prompt.substring(0, 30).replace(/\s+/g, '_')}.glb`,
+                        filename: `${prompt.substring(0, FILENAME_MAX_LENGTH).replace(/\s+/g, '_')}.glb`,
                         isMeshyModel: true
                     });
                     
