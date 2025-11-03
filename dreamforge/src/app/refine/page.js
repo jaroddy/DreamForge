@@ -152,9 +152,14 @@ const RefinePage = () => {
                                         Download GLB File
                                     </a>
                                     <button
-                                        onClick={() => {
-                                            navigator.clipboard.writeText(fileData.fileUrl);
-                                            toast.success('URL copied to clipboard!');
+                                        onClick={async () => {
+                                            try {
+                                                await navigator.clipboard.writeText(fileData.fileUrl);
+                                                toast.success('URL copied to clipboard!');
+                                            } catch (error) {
+                                                console.error('Failed to copy URL:', error);
+                                                toast.error('Failed to copy URL. Please copy manually.');
+                                            }
                                         }}
                                         className="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-lg transition duration-300 text-sm font-medium"
                                         title="Copy URL to clipboard"
@@ -162,8 +167,11 @@ const RefinePage = () => {
                                         📋 Copy
                                     </button>
                                 </div>
-                                <p className="text-xs text-gray-500 mt-2 break-all">
-                                    {fileData.fileUrl}
+                                <p className="text-xs text-gray-500 mt-2 break-all" title={fileData.fileUrl}>
+                                    {fileData.fileUrl.length > 100 
+                                        ? `${fileData.fileUrl.substring(0, 80)}...${fileData.fileUrl.substring(fileData.fileUrl.length - 20)}`
+                                        : fileData.fileUrl
+                                    }
                                 </p>
                             </div>
                         )}

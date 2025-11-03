@@ -10,6 +10,8 @@ SQLALCHEMY_MAX_LOG_CHARS = 10000
 
 # Monkey-patch SQLAlchemy's _repr_single_value to not truncate long parameter values
 # This ensures URLs and other long values are fully logged instead of being truncated
+# NOTE: This modifies SQLAlchemy internals and may need updates if SQLAlchemy changes.
+# Consider using official logging configuration in future SQLAlchemy versions if available.
 def _repr_single_value_no_truncate(value):
     """Custom repr that doesn't truncate parameter values"""
     rp = sql_util._repr_base()
