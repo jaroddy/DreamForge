@@ -2,6 +2,29 @@ from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 from sqlalchemy.orm import sessionmaker
 from app.core.config import settings
 from app.models.database import Base
+from sqlalchemy.sql import util as sql_util
+
+# Monkey-patch SQLAlchemy's _repr_single_value to not truncate long parameter values
+# This ensures URLs and other long values are fully logged instead of being truncated
+_original_repr_single_value = sql_util._repr_single_value
+
+def _repr_single_value_no_truncate(value):
+    """Custom repr that doesn't truncate parameter values"""
+    rp = sql_util._repr_base()
+    rp.max_chars = 10000  # Increase from default 300 to 10000 to show full URLs
+    return rp.trunc(value)
+
+# Replace the original function
+sql_util._repr_single_value = _repr_single_value_no_truncate
+
+# Also monkey-patch the _repr_params class to increase max_chars for all parameter logging
+_original_repr_params_init = sql_util._repr_params.__init__
+
+def _repr_params_init_no_truncate(self, params, batches, max_params=100, max_chars=10000, ismulti=None):
+    """Initialize _repr_params with increased max_chars default"""
+    _original_repr_params_init(self, params, batches, max_params, max_chars, ismulti)
+
+sql_util._repr_params.__init__ = _repr_params_init_no_truncate
 
 # Create async engine
 engine = create_async_engine(
