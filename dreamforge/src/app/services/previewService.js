@@ -13,9 +13,22 @@ export class PreviewService {
             let extension = fileExtension;
             if (!extension) {
                 const urlPath = fileURL.split('?')[0]; // Remove query params
-                extension = urlPath.split('.').pop().toLowerCase();
+                const parts = urlPath.split('.');
+                if (parts.length > 1) {
+                    extension = parts.pop().toLowerCase();
+                } else {
+                    reject(new Error('Unable to determine file format from URL. Please provide fileExtension parameter.'));
+                    return;
+                }
             } else {
                 extension = extension.toLowerCase();
+            }
+
+            // Validate extension
+            const supportedFormats = ['stl', 'glb', 'gltf'];
+            if (!supportedFormats.includes(extension)) {
+                reject(new Error(`Unsupported file format: ${extension}. Supported formats: ${supportedFormats.join(', ').toUpperCase()}`));
+                return;
             }
 
             if (extension === 'glb' || extension === 'gltf') {
@@ -24,6 +37,8 @@ export class PreviewService {
                     fileURL,
                     (gltf) => {
                         // Extract geometry from the GLTF scene
+                        // Note: For complex models with multiple meshes, only the first mesh is used.
+                        // This is sufficient for single-object models typical from Meshy API.
                         let geometry = null;
                         gltf.scene.traverse((child) => {
                             if (child.isMesh && !geometry) {
@@ -50,8 +65,6 @@ export class PreviewService {
                     undefined,
                     reject
                 );
-            } else {
-                reject(new Error(`Unsupported file format: ${extension}. Supported formats: STL, GLB, GLTF`));
             }
         });
     }
