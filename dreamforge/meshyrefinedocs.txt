@@ -1,0 +1,80 @@
+This endpoint allows you to create a new Text to 3D Refine task.
+
+Parameters
+Required attributes
+Name
+mode
+Type
+string
+Description
+This field should be set to "refine" when creating a refine task.
+
+Name
+preview_task_id
+Type
+string
+Description
+The corresponding preview task id.
+
+The status of the given preview task must be SUCCEEDED.
+
+Optional attributes
+Name
+enable_pbr
+Type
+boolean
+Description
+Generate PBR Maps (metallic, roughness, normal) in addition to the base color.
+
+Default to false if not specified.
+
+Note that enable_pbr should be set to false when using Sculpture style, as Sculpture style generates its own set of PBR maps.
+
+Name
+texture_prompt
+Type
+string
+Description
+Provide an additional text prompt to guide the texturing process. Maximum 600 characters.
+
+Name
+texture_image_url
+Type
+string
+Description
+Provide a 2d image to guide the texturing process. We currently support .jpg, .jpeg, and .png formats.
+
+There are two ways to provide the image:
+
+Publicly accessible URL: A URL that is accessible from the public internet
+Data URI: A base64-encoded data URI of the image. Example of a data URI: data:image/jpeg;base64,<your base64-encoded image data>
+Image texturing may not work optimally if there are substantial geometry differences between the original asset and uploaded image. Only one of texture_image_url or texture_prompt may be used to guide the texturing process. If both parameters are provided, then texture_prompt will be used to texture the model by default. Texturing via either text or image will cost 10 credits per task.
+
+Name
+ai_model
+Type
+string
+Description
+ID of the model to use for refining.
+
+Available values:
+
+meshy-5
+meshy-4
+Default to meshy-5 if not specified.
+
+This parameter is only applicable when the corresponding preview task was generated with meshy-5. If the preview task used meshy-4, this parameter is invalid.
+
+Name
+moderation
+Type
+boolean
+Description
+When set to true, the input content will automatically be screened for potentially harmful content. If harmful content is detected, the task will not proceed to generation.
+
+Both the text from texture_prompt and the image from texture_image_url will be screened.
+
+Defaults to false if not specified.
+
+Returns
+The result property of the response contains the task id of the newly created Text to 3D task.

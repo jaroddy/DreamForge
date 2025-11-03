@@ -1,0 +1,129 @@
+This endpoint allows you to create a new Text to 3D Preview task. This task costs 20 credits for Meshy-6 models and 5 credits for other models. Refer to The Text to 3D Task Object to see which properties are included with Text to 3D task object.
+
+Parameters
+Required attributes
+Name
+mode
+Type
+string
+Description
+This field should be set to "preview" when creating a preview task.
+
+Name
+prompt
+Type
+string
+Description
+Describe what kind of object the 3D model is. Maximum 600 characters.
+
+Optional attributes
+Name
+art_style
+Type
+string
+Description
+Describe your desired art style of the object.
+
+Available values:
+
+realistic: Realistic style
+sculpture: Sculpture style
+Default to realistic if not specified.
+
+Note that enable_pbr should be set to false when using Sculpture style, as Sculpture style generates its own set of PBR maps.
+
+Name
+seed
+Type
+integer
+Description
+Seed of the task. When you use the same prompt and seed, you will generate the same result in most cases. However, the same seed may occasionally produce different results from a previous task due to our software and hardware updates.
+
+Name
+ai_model
+Type
+string
+Description
+ID of the model to use.
+
+Available values:
+
+meshy-4
+meshy-5
+latest: Meshy 6 Preview
+Default to meshy-5 if not specified.
+
+Name
+topology
+Type
+string
+Description
+Specify the topology of the generated model.
+
+Available values:
+
+quad: Generate a quad-dominant mesh.
+triangle: Generate a decimated triangle mesh.
+Default to triangle if not specified.
+
+Name
+target_polycount
+Type
+integer
+Description
+Specify the target number of polygons in the generated model. The actual number of polygons may deviate from the target depending on the complexity of the geometry.
+
+The valid value range varies depending on the user tier:
+
+100 to 300,000 (inclusive)
+Default to 30,000 if not specified.
+
+Name
+should_remesh
+Type
+boolean
+Description
+The should_remesh flag controls whether to enable the remesh phase.
+
+When set to false, it directly returns an unprocessed triangular mesh, ignoring topology and target_polycount.
+
+Default to true if not specified.
+
+Note that if should_remesh is enabled, the model will be remeshed to whatever target_polycount is set to. To achieve the highest-precision meshes, set should_remesh to false.
+
+Name
+symmetry_mode
+Type
+string
+Description
+The symmetry_mode field controls symmetry behavior during the model generation process.
+
+The valid values are:
+
+off: Disables symmetry.
+auto: Automatically determines and applies symmetry based on input geometry.
+on: Enforces symmetry during generation.
+Default to auto if not specified.
+
+Name
+is_a_t_pose
+Type
+boolean
+Description
+Whether to generate the model in an A/T pose.
+
+Default to false if not specified.
+
+Name
+moderation
+Type
+boolean
+Description
+When set to true, the input content will automatically be screened for potentially harmful content. If harmful content is detected, the task will not proceed to generation.
+
+The text from prompt will be screened.
+
+Defaults to false if not specified.
+
+Returns
+The result property of the response contains the task id of the newly created Text to 3D task.

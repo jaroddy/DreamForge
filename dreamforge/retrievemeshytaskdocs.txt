@@ -1,0 +1,14 @@
+This endpoint allows you to retrieve a Text to 3D task given a valid task id. Refer to The Text to 3D Task Object to see which properties are included with Text to 3D task object.
+
+This endpoint works for both preview and refine tasks.
+
+Parameters
+Name
+id
+Type
+path
+Description
+Unique identifier for the Text to 3D task to retrieve.
+
+Returns
+The response contains the Text to 3D task object. Check The Text to 3D Task Object section for details.

@@ -1,0 +1,29 @@
+This endpoint allows you to retrieve a list of Text to 3D tasks.
+
+Parameters
+Optional attributes
+Name
+page_num
+Type
+integer
+Description
+Page number for pagination. Starts and defaults to 1.
+
+Name
+page_size
+Type
+integer
+Description
+Page size limit. Defaults to 10 items. Maximum allowed is 50 items.
+
+Name
+sort_by
+Type
+string
+Description
+Field to sort by. Available values:
+
++created_at: Sort by creation time in ascending order.
+-created_at: Sort by creation time in descending order.
+Returns
+Returns a paginated list of The Text to 3D Task Objects.
