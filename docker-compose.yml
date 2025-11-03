@@ -1,0 +1,52 @@
+version: '3.8'
+
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: dreamforge-backend
+    ports:
+      - "8000:8000"
+    environment:
+      - MESHY_API_KEY=${MESHY_API_KEY}
+      - SLANT3D_API_KEY=${SLANT3D_API_KEY}
+      - STRIPE_SECRET_KEY=${STRIPE_SECRET_KEY}
+      - STRIPE_PUBLISHABLE_KEY=${STRIPE_PUBLISHABLE_KEY}
+      - FRONTEND_URL=http://localhost:3000
+      - DATABASE_URL=sqlite+aiosqlite:///./data/dreamforge.db
+    volumes:
+      - backend-data:/app/data
+    networks:
+      - dreamforge-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import requests; requests.get('http://localhost:8000/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  frontend:
+    build:
+      context: ./dreamforge
+      dockerfile: Dockerfile
+    container_name: dreamforge-frontend
+    ports:
+      - "3000:3000"
+    environment:
+      - NEXT_PUBLIC_BACKEND_URL=http://backend:8000
+      - NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=${STRIPE_PUBLISHABLE_KEY}
+    depends_on:
+      - backend
+    networks:
+      - dreamforge-network
+    restart: unless-stopped
+
+volumes:
+  backend-data:
+    driver: local
+
+networks:
+  dreamforge-network:
+    driver: bridge
