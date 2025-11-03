@@ -139,6 +139,35 @@ const RefinePage = () => {
                             </div>
                         )}
                         
+                        {fileData?.fileUrl && (
+                            <div className="mt-4 p-4 bg-blue-50 border-2 border-blue-200 rounded-lg">
+                                <h3 className="font-bold text-blue-800 mb-2">Model File</h3>
+                                <div className="flex items-center space-x-2">
+                                    <a 
+                                        href={fileData.fileUrl} 
+                                        target="_blank" 
+                                        rel="noopener noreferrer"
+                                        className="flex-1 px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white text-center rounded-lg transition duration-300 text-sm font-medium"
+                                    >
+                                        Download GLB File
+                                    </a>
+                                    <button
+                                        onClick={() => {
+                                            navigator.clipboard.writeText(fileData.fileUrl);
+                                            toast.success('URL copied to clipboard!');
+                                        }}
+                                        className="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-lg transition duration-300 text-sm font-medium"
+                                        title="Copy URL to clipboard"
+                                    >
+                                        📋 Copy
+                                    </button>
+                                </div>
+                                <p className="text-xs text-gray-500 mt-2 break-all">
+                                    {fileData.fileUrl}
+                                </p>
+                            </div>
+                        )}
+                        
                         {costEstimate && (
                             <div className="mt-4 p-4 bg-green-100 rounded-lg">
                                 <h3 className="font-bold text-green-800">Cost Estimate</h3>
