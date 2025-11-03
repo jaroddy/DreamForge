@@ -60,8 +60,8 @@ const PreviewComponent = ({ fileURL, onExceedsLimit, onError }) => {
     previewRef.current.appendChild(renderer.domElement);
     camera.current.position.z = 500;
     
-    // Better lighting for 3D models
-    scene.add(new THREE.AmbientLight(0xffffff, 0.9));
+    // Better lighting for 3D models - balanced for good contrast
+    scene.add(new THREE.AmbientLight(0xffffff, 0.4));
     const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
     dirLight.position.set(1, 1, 1);
     scene.add(dirLight);
@@ -85,7 +85,7 @@ const PreviewComponent = ({ fileURL, onExceedsLimit, onError }) => {
       }
 
       // Handle both BufferGeometry (STL) and Object3D (GLB/GLTF)
-      if (loaded.isBufferGeometry || loaded.isGeometry) {
+      if (loaded.isBufferGeometry) {
         // STL files return geometry - create a mesh
         const material = new THREE.MeshStandardMaterial({ color: 0xb3b3b3 });
         meshRef.current = new THREE.Mesh(loaded, material);

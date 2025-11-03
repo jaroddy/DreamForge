@@ -9,6 +9,8 @@ export class PreviewService {
         this.gltfLoader = new GLTFLoader();
         
         // Configure DRACOLoader for compressed GLB files
+        // Using Google's CDN as recommended by Three.js documentation for Draco decoders
+        // Version 1.5.6 is compatible with Three.js 0.158.0
         const dracoLoader = new DRACOLoader();
         dracoLoader.setDecoderPath('https://www.gstatic.com/draco/versioned/decoders/1.5.6/');
         dracoLoader.setDecoderConfig({ type: 'js' });
