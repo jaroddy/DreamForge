@@ -12,7 +12,12 @@ export const FileUrlProvider = ({ children }) => {
     slicerApiResponse: null,
     totalPrice: 0,
     filename: '',
-    color: 'gray', 
+    color: 'gray',
+    // Meshy-specific fields
+    isMeshyModel: false,
+    meshyTaskId: null,
+    meshyData: null,
+    textureUrl: null
   });
   const [quantity, setQuantity] = useState(1); // Separate quantity state
 
