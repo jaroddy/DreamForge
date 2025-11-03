@@ -170,6 +170,20 @@ const MyModelsPage = () => {
                                                 {model.prompt || 'No description'}
                                             </p>
                                             
+                                            {model.status === 'SUCCEEDED' && model.model_url && (
+                                                <div className="mb-2">
+                                                    <a
+                                                        href={model.model_url}
+                                                        target="_blank"
+                                                        rel="noopener noreferrer"
+                                                        onClick={(e) => e.stopPropagation()}
+                                                        className="inline-flex items-center text-xs text-blue-500 hover:text-blue-700 font-medium"
+                                                    >
+                                                        📥 Download GLB
+                                                    </a>
+                                                </div>
+                                            )}
+                                            
                                             <p className="text-xs text-gray-500">
                                                 Created: {formatDate(model.created_at)}
                                             </p>

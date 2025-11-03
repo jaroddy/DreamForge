@@ -20,6 +20,7 @@ class Settings(BaseSettings):
     
     # Database
     DATABASE_URL: str = "sqlite+aiosqlite:///./dreamforge.db"
+    DATABASE_ECHO: bool = True  # Set to False in production to disable SQL logging
     
     # Meshy API
     MESHY_API_BASE_URL: str = "https://api.meshy.ai/openapi/v2"
