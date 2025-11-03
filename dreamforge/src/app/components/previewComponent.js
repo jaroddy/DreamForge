@@ -56,27 +56,39 @@ const PreviewComponent = ({ fileURL, onExceedsLimit, onError }) => {
   }, [fileURL]);
   const initializeScene = () => {
     renderer.setSize(600, 400); // Fixed size
+    renderer.outputColorSpace = THREE.SRGBColorSpace; // Proper color space for GLB files
     previewRef.current.appendChild(renderer.domElement);
     camera.current.position.z = 500;
-    scene.add(new THREE.AmbientLight(0xffffff, 0.5));
-    scene.add(new THREE.DirectionalLight(0xffffff, 0.5));
+    
+    // Better lighting for 3D models - balanced for good contrast
+    scene.add(new THREE.AmbientLight(0xffffff, 0.4));
+    const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
+    dirLight.position.set(1, 1, 1);
+    scene.add(dirLight);
 
     // Set the background color to white
     renderer.setClearColor(0xf0f0f0); // A slightly darker white color
 
 
     controlsRef.current = new OrbitControls(camera.current, renderer.domElement);
+    controlsRef.current.enableDamping = true; // Smooth controls
     animate();
   };
 
   const loadModel = async (url) => {
     const fileExtension = url.split('.').pop().split('?')[0].toLowerCase();
     try {
-      const geometry = await previewService.loadModel(url, fileExtension);
+      const loaded = await previewService.loadModel(url, fileExtension);
 
-      if (geometry) {
+      if (!loaded) {
+        throw new Error('Invalid file: Could not load the 3D model from the provided file.');
+      }
+
+      // Handle both BufferGeometry (STL) and Object3D (GLB/GLTF)
+      if (loaded.isBufferGeometry) {
+        // STL files return geometry - create a mesh
         const material = new THREE.MeshStandardMaterial({ color: 0xb3b3b3 });
-        meshRef.current = new THREE.Mesh(geometry, material);
+        meshRef.current = new THREE.Mesh(loaded, material);
 
         let boundingBox = new THREE.Box3().setFromObject(meshRef.current);
         const center = boundingBox.getCenter(new THREE.Vector3());
@@ -103,8 +115,41 @@ const PreviewComponent = ({ fileURL, onExceedsLimit, onError }) => {
 
         scene.add(meshRef.current);
         setModelLoaded(true);
+      } else if (loaded.isObject3D) {
+        // GLB/GLTF files return Object3D - use directly
+        meshRef.current = loaded;
+
+        // Ensure all meshes have proper materials and are double-sided
+        meshRef.current.traverse((child) => {
+          if (child.isMesh) {
+            // Keep existing materials if present, otherwise apply default
+            if (!child.material) {
+              child.material = new THREE.MeshStandardMaterial({ color: 0xb3b3b3 });
+            }
+            // Make materials double-sided to avoid rendering issues
+            if (Array.isArray(child.material)) {
+              child.material.forEach(mat => mat.side = THREE.DoubleSide);
+            } else {
+              child.material.side = THREE.DoubleSide;
+            }
+          }
+        });
+
+        // Calculate bounding box and center the model
+        const boundingBox = new THREE.Box3().setFromObject(meshRef.current);
+        const center = boundingBox.getCenter(new THREE.Vector3());
+        const size = boundingBox.getSize(new THREE.Vector3());
+
+        checkDimensions(size);
+
+        // Center the model on the grid
+        meshRef.current.position.copy(center).multiplyScalar(-1);
+        meshRef.current.position.y += size.y / 2;
+
+        scene.add(meshRef.current);
+        setModelLoaded(true);
       } else {
-        throw new Error('Invalid file: Could not load the 3D model from the provided file.');
+        throw new Error('Unsupported model type returned by loader');
       }
     } catch (error) {
       console.error(error);
