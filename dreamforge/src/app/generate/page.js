@@ -59,9 +59,7 @@ const GeneratePage = () => {
                         meshyTaskId: result.task_id,
                         meshyData: completedTask,
                         filename: `${prompt.substring(0, 30).replace(/\s+/g, '_')}.glb`,
-                        isM
-
-eshyModel: true
+                        isMeshyModel: true
                     });
                     
                     // Navigate to refine page
