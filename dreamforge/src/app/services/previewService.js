@@ -1,11 +1,18 @@
 import * as THREE from 'three';
 import { STLLoader } from 'three/examples/jsm/loaders/STLLoader';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader';
+import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader';
 
 export class PreviewService {
     constructor() {
         this.stlLoader = new STLLoader();
         this.gltfLoader = new GLTFLoader();
+        
+        // Configure DRACOLoader for compressed GLB files
+        const dracoLoader = new DRACOLoader();
+        dracoLoader.setDecoderPath('https://www.gstatic.com/draco/versioned/decoders/1.5.6/');
+        dracoLoader.setDecoderConfig({ type: 'js' });
+        this.gltfLoader.setDRACOLoader(dracoLoader);
     }
     loadModel(fileURL, fileExtension = null) {
         return new Promise((resolve, reject) => {
@@ -33,26 +40,26 @@ export class PreviewService {
 
             if (extension === 'glb' || extension === 'gltf') {
                 // Load GLB/GLTF file
+                // Set cross-origin to allow loading from external domains
+                this.gltfLoader.setCrossOrigin('anonymous');
+                
                 this.gltfLoader.load(
                     fileURL,
                     (gltf) => {
-                        // Extract geometry from the GLTF scene
-                        // Note: For complex models with multiple meshes, only the first mesh is used.
-                        // This is sufficient for single-object models typical from Meshy API.
-                        let geometry = null;
-                        gltf.scene.traverse((child) => {
-                            if (child.isMesh && !geometry) {
-                                geometry = child.geometry;
-                            }
-                        });
-                        if (geometry) {
-                            resolve(geometry);
-                        } else {
-                            reject(new Error('No mesh geometry found in GLB/GLTF file'));
+                        // Return the scene as Object3D for GLB/GLTF files
+                        // This preserves the hierarchy and allows proper rendering
+                        const scene = gltf.scene || gltf.scenes?.[0];
+                        if (!scene) {
+                            reject(new Error('No scene found in GLB/GLTF file'));
+                            return;
                         }
+                        resolve(scene);
                     },
                     undefined,
-                    reject
+                    (error) => {
+                        console.error('GLB/GLTF loading error:', error);
+                        reject(error);
+                    }
                 );
             } else if (extension === 'stl') {
                 // Load STL file
@@ -63,7 +70,10 @@ export class PreviewService {
                         resolve(geometry);
                     },
                     undefined,
-                    reject
+                    (error) => {
+                        console.error('STL loading error:', error);
+                        reject(error);
+                    }
                 );
             }
         });
