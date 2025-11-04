@@ -18,7 +18,9 @@ router = APIRouter(prefix="/api/meshy", tags=["meshy"])
 logger = logging.getLogger(__name__)
 
 # Minimum file size in bytes for GLB files - GLB files smaller than this are likely corrupt
-# A valid GLB file has a 12-byte header + JSON chunk + binary chunk, so 100 bytes is a reasonable minimum
+# A valid GLB file has a 12-byte header + JSON chunk header (8 bytes) + minimal JSON (few bytes)
+# + binary chunk header (8 bytes) + binary data. We use 100 bytes as a practical minimum
+# to catch obviously corrupt files while allowing small test models.
 MIN_GLB_FILE_SIZE = 100
 
 
@@ -308,19 +310,25 @@ async def proxy_model_file(
                 
                 # Check content length to avoid streaming empty or corrupt files
                 content_length = response.headers.get("content-length")
-                if content_length and int(content_length) < MIN_GLB_FILE_SIZE:
-                    raise HTTPException(
-                        status_code=400,
-                        detail=f"File too small ({content_length} bytes), possibly corrupt or empty"
-                    )
+                if content_length:
+                    try:
+                        size = int(content_length)
+                        if size < MIN_GLB_FILE_SIZE:
+                            raise HTTPException(
+                                status_code=400,
+                                detail=f"File too small ({size} bytes), possibly corrupt or empty"
+                            )
+                    except ValueError:
+                        logger.warning(f"Invalid content-length header: {content_length}")
                 
                 # Determine content type based on file extension or response header
                 content_type = response.headers.get("content-type", "application/octet-stream")
                 
                 # Override content type for GLB files to ensure proper handling
-                if url.endswith('.glb') or url.endswith('.GLB'):
+                url_lower = url.lower()
+                if url_lower.endswith('.glb'):
                     content_type = "model/gltf-binary"
-                elif url.endswith('.gltf') or url.endswith('.GLTF'):
+                elif url_lower.endswith('.gltf'):
                     content_type = "model/gltf+json"
                 
                 # Extract filename from URL for informational purposes
