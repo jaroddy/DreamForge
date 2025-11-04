@@ -1,5 +1,5 @@
 'use client';
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 
 /**
  * Simple GLB/GLTF viewer component using model-viewer web component
@@ -11,12 +11,16 @@ import React, { useEffect, useRef } from 'react';
  * - Auto-rotate functionality
  * - Shadow rendering
  * - No complex Three.js setup required
+ * 
+ * Note: This component is specifically designed for viewing GLB files and does not
+ * include dimension validation. The original PreviewComponent had 3D printing dimension
+ * checks, but those were not being used in the pages where this component is deployed.
  */
 const GlbViewer = ({ fileURL, width = '600px', height = '400px' }) => {
   const viewerRef = useRef(null);
-  const [isLoaded, setIsLoaded] = React.useState(false);
-  const [error, setError] = React.useState(null);
-  const [scriptLoaded, setScriptLoaded] = React.useState(false);
+  const [isLoaded, setIsLoaded] = useState(false);
+  const [error, setError] = useState(null);
+  const [scriptLoaded, setScriptLoaded] = useState(false);
 
   useEffect(() => {
     // Check if model-viewer is already defined
@@ -30,23 +34,32 @@ const GlbViewer = ({ fileURL, width = '600px', height = '400px' }) => {
       // Check if script is already being loaded
       const existingScript = document.querySelector('script[src*="model-viewer"]');
       if (existingScript) {
-        // Script is already loading, wait for it
-        const checkLoaded = setInterval(() => {
-          if (customElements.get('model-viewer')) {
-            setScriptLoaded(true);
-            clearInterval(checkLoaded);
-          }
-        }, 100);
-        return () => clearInterval(checkLoaded);
+        // Script is already loading, wait for it using whenDefined
+        customElements.whenDefined('model-viewer')
+          .then(() => setScriptLoaded(true))
+          .catch((err) => {
+            console.error('Failed to load model-viewer:', err);
+            setError('Failed to load 3D viewer library.');
+          });
+        return;
       }
 
       const script = document.createElement('script');
       script.type = 'module';
       // Using Google's CDN for model-viewer
+      // The library is widely used and maintained by Google
       script.src = 'https://ajax.googleapis.com/ajax/libs/model-viewer/3.5.0/model-viewer.min.js';
-      script.onload = () => setScriptLoaded(true);
+      script.onload = () => {
+        // Wait for the custom element to be fully defined
+        customElements.whenDefined('model-viewer')
+          .then(() => setScriptLoaded(true))
+          .catch((err) => {
+            console.error('Failed to define model-viewer:', err);
+            setError('Failed to load 3D viewer library.');
+          });
+      };
       script.onerror = () => {
-        console.error('Failed to load model-viewer library');
+        console.error('Failed to load model-viewer library from CDN');
         setError('Failed to load 3D viewer library. Please check your internet connection.');
       };
       document.head.appendChild(script);
