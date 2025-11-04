@@ -43,6 +43,9 @@ const ChatWindow = ({ onClose }) => {
                 return;
             }
 
+            // NOTE: For production, this should be moved to a backend API route
+            // to protect the API key. Current implementation is for demonstration
+            // and assumes user will add their own key for local development.
             const response = await fetch('https://api.openai.com/v1/chat/completions', {
                 method: 'POST',
                 headers: {
@@ -75,6 +78,12 @@ const ChatWindow = ({ onClose }) => {
             }
 
             const data = await response.json();
+            
+            // Validate response structure
+            if (!data.choices || data.choices.length === 0 || !data.choices[0].message) {
+                throw new Error('Invalid response from ChatGPT');
+            }
+            
             const assistantMessage = data.choices[0].message.content;
             addMessage('assistant', assistantMessage);
         } catch (error) {
