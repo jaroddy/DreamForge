@@ -261,22 +261,34 @@ async def proxy_model_file(
     
     try:
         async with httpx.AsyncClient(timeout=60.0) as client:
-            # Download the file from Meshy
-            response = await client.get(url)
-            response.raise_for_status()
-            
-            # Get content type from the response
-            content_type = response.headers.get("content-type", "application/octet-stream")
-            
-            # Return the file with appropriate headers
-            return StreamingResponse(
-                iter([response.content]),
-                media_type=content_type,
-                headers={
-                    "Content-Disposition": f'attachment; filename="model.glb"',
-                    "Cache-Control": "public, max-age=3600"
-                }
-            )
+            # Stream the file from Meshy using aiter_bytes for memory efficiency
+            async with client.stream("GET", url) as response:
+                response.raise_for_status()
+                
+                # Get content type from the response
+                content_type = response.headers.get("content-type", "application/octet-stream")
+                
+                # Extract filename from URL or use default
+                filename = "model.glb"
+                if "/" in url:
+                    url_filename = url.split("/")[-1].split("?")[0]  # Remove query params
+                    if url_filename:
+                        filename = url_filename
+                
+                # Stream the response content efficiently
+                async def stream_generator():
+                    async for chunk in response.aiter_bytes(chunk_size=8192):
+                        yield chunk
+                
+                # Return the file with appropriate headers
+                return StreamingResponse(
+                    stream_generator(),
+                    media_type=content_type,
+                    headers={
+                        "Content-Disposition": f'attachment; filename="{filename}"',
+                        "Cache-Control": "public, max-age=3600"
+                    }
+                )
     
     except httpx.HTTPStatusError as e:
         raise HTTPException(status_code=e.response.status_code, detail=f"Failed to fetch file: {str(e)}")
