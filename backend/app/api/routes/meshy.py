@@ -324,11 +324,13 @@ async def proxy_model_file(
                 # Determine content type based on file extension or response header
                 content_type = response.headers.get("content-type", "application/octet-stream")
                 
+                # Extract the file path without query parameters for accurate extension detection
+                url_path = url.split("?")[0].lower()
+                
                 # Override content type for GLB files to ensure proper handling
-                url_lower = url.lower()
-                if url_lower.endswith('.glb'):
+                if url_path.endswith('.glb'):
                     content_type = "model/gltf-binary"
-                elif url_lower.endswith('.gltf'):
+                elif url_path.endswith('.gltf'):
                     content_type = "model/gltf+json"
                 
                 # Extract filename from URL for informational purposes
