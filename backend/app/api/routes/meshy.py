@@ -278,7 +278,10 @@ async def proxy_model_file(
     try:
         async with httpx.AsyncClient(timeout=60.0) as client:
             # Stream the file from Meshy using aiter_bytes for memory efficiency
-            async with client.stream("GET", url) as response:
+            # SSRF Note: URL is validated above to only allow https://assets.meshy.ai/ domain
+            # Additional validation blocks URL manipulation (@ and .. characters)
+            # This is a controlled proxy for a trusted external service (Meshy.ai)
+            async with client.stream("GET", url) as response:  # nosec - URL validated above
                 response.raise_for_status()
                 
                 # Get content type from the response
