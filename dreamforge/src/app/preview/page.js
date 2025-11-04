@@ -5,8 +5,8 @@ import { useRouter } from 'next/navigation';
 import { useFileUrl } from '../context/fileUrlContext';
 import dynamic from 'next/dynamic';
 
-// Dynamically import the PreviewComponent with SSR turned off
-const PreviewComponent = dynamic(() => import('../components/previewComponent'), { ssr: false });
+// Dynamically import the GlbViewer with SSR turned off
+const GlbViewer = dynamic(() => import('../components/glbViewer'), { ssr: false });
 const PreviewOptions = dynamic(() => import('../components/PreviewOptions'), { ssr: false });
 
 const Preview = () => {
@@ -29,8 +29,8 @@ const Preview = () => {
         <div className="w-full max-w-lg mx-auto flex flex-col items-center">
           <h1 className="text-center text-2xl font-bold mb-4"></h1>
 
-          <div className="border-4 border-white">
-            <PreviewComponent fileURL={fileUrl} className=" " />
+          <div className="border-4 border-white overflow-hidden">
+            <GlbViewer fileURL={fileUrl} width="100%" height="400px" />
           </div>
 
           <PreviewOptions slicerResponse={slicerApiResponse} />

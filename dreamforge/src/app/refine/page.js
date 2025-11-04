@@ -8,7 +8,7 @@ import { useFileUrl } from '../context/fileUrlContext';
 import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 
-const PreviewComponent = dynamic(() => import('../components/previewComponent'), { ssr: false });
+const GlbViewer = dynamic(() => import('../components/glbViewer'), { ssr: false });
 
 const RefinePage = () => {
     const router = useRouter();
@@ -134,8 +134,8 @@ const RefinePage = () => {
                         <h2 className="text-2xl font-bold mb-4">Preview</h2>
                         
                         {fileData?.fileUrl && (
-                            <div className="border-4 border-gray-200 rounded-lg">
-                                <PreviewComponent fileURL={fileData.fileUrl} />
+                            <div className="border-4 border-gray-200 rounded-lg overflow-hidden">
+                                <GlbViewer fileURL={fileData.fileUrl} width="100%" height="400px" />
                             </div>
                         )}
                         
