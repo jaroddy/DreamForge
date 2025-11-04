@@ -1,9 +1,11 @@
 from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, update
 from typing import Optional
 from pydantic import BaseModel, Field
 from datetime import datetime
+import httpx
 
 from app.db.database import get_db
 from app.services.meshy_service import MeshyService
@@ -238,3 +240,45 @@ async def list_tasks(
     
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/proxy")
+async def proxy_model_file(
+    request: Request,
+    url: str
+):
+    """
+    Proxy endpoint to download model files from Meshy.ai
+    This bypasses CORS issues by downloading the file on the backend
+    and serving it with appropriate CORS headers
+    """
+    # Check rate limit
+    await rate_limiter.check_rate_limit(request)
+    
+    # Validate that the URL is from Meshy's domain to prevent abuse
+    if not url.startswith("https://assets.meshy.ai/"):
+        raise HTTPException(status_code=400, detail="Invalid URL: Only Meshy assets are allowed")
+    
+    try:
+        async with httpx.AsyncClient(timeout=60.0) as client:
+            # Download the file from Meshy
+            response = await client.get(url)
+            response.raise_for_status()
+            
+            # Get content type from the response
+            content_type = response.headers.get("content-type", "application/octet-stream")
+            
+            # Return the file with appropriate headers
+            return StreamingResponse(
+                iter([response.content]),
+                media_type=content_type,
+                headers={
+                    "Content-Disposition": f'attachment; filename="model.glb"',
+                    "Cache-Control": "public, max-age=3600"
+                }
+            )
+    
+    except httpx.HTTPStatusError as e:
+        raise HTTPException(status_code=e.response.status_code, detail=f"Failed to fetch file: {str(e)}")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error proxying file: {str(e)}")

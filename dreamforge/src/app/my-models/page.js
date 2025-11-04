@@ -1,7 +1,7 @@
 'use client'
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import MeshyService from '../services/meshyService';
+import MeshyService, { getProxiedUrl } from '../services/meshyService';
 import { useFileUrl } from '../context/fileUrlContext';
 import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
@@ -47,7 +47,7 @@ const MyModelsPage = () => {
                 if (taskData.status === 'SUCCEEDED') {
                     const modelUrl = taskData.model_urls?.glb || taskData.model_urls?.obj || '';
                     setFileData({
-                        fileUrl: modelUrl,
+                        fileUrl: getProxiedUrl(modelUrl),
                         meshyTaskId: model.task_id,
                         meshyData: taskData,
                         filename: `${model.prompt?.substring(0, FILENAME_MAX_LENGTH).replace(/\s+/g, '_') || 'model'}.glb`,
@@ -60,9 +60,9 @@ const MyModelsPage = () => {
                     toast.error('Model generation failed');
                 }
             } else {
-                // Model is ready, use it
+                // Model is ready, use it with proxied URL to fix CORS issues
                 setFileData({
-                    fileUrl: model.model_url,
+                    fileUrl: getProxiedUrl(model.model_url),
                     meshyTaskId: model.task_id,
                     filename: `${model.prompt?.substring(0, FILENAME_MAX_LENGTH).replace(/\s+/g, '_') || 'model'}.glb`,
                     isMeshyModel: true

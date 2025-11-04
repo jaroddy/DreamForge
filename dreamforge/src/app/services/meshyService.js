@@ -2,6 +2,23 @@ import axios from 'axios';
 
 const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8000';
 
+/**
+ * Convert a Meshy.ai asset URL to a proxied URL through our backend
+ * This fixes CORS issues when loading GLB files from Meshy's servers
+ * @param {string} meshyUrl - The original Meshy.ai asset URL
+ * @returns {string} - The proxied URL through our backend
+ */
+export function getProxiedUrl(meshyUrl) {
+    if (!meshyUrl) return meshyUrl;
+    
+    // Only proxy Meshy.ai URLs
+    if (meshyUrl.startsWith('https://assets.meshy.ai/')) {
+        return `${BACKEND_URL}/api/meshy/proxy?url=${encodeURIComponent(meshyUrl)}`;
+    }
+    
+    return meshyUrl;
+}
+
 class MeshyService {
     constructor() {
         this.client = axios.create({
