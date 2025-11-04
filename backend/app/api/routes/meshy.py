@@ -251,13 +251,29 @@ async def proxy_model_file(
     Proxy endpoint to download model files from Meshy.ai
     This bypasses CORS issues by downloading the file on the backend
     and serving it with appropriate CORS headers
+    
+    Security: Only allows URLs from the trusted Meshy.ai assets domain
+    to prevent SSRF attacks and unauthorized resource access
     """
     # Check rate limit
     await rate_limiter.check_rate_limit(request)
     
-    # Validate that the URL is from Meshy's domain to prevent abuse
-    if not url.startswith("https://assets.meshy.ai/"):
-        raise HTTPException(status_code=400, detail="Invalid URL: Only Meshy assets are allowed")
+    # SSRF Protection: Strict validation that the URL is from Meshy's trusted domain
+    # This prevents attackers from using this endpoint to access internal resources
+    # or make requests to arbitrary external services
+    ALLOWED_DOMAIN = "https://assets.meshy.ai/"
+    if not url.startswith(ALLOWED_DOMAIN):
+        raise HTTPException(
+            status_code=400, 
+            detail=f"Invalid URL: Only Meshy assets from {ALLOWED_DOMAIN} are allowed"
+        )
+    
+    # Additional validation: ensure no URL manipulation tricks (e.g., @, .., etc)
+    if "@" in url or ".." in url:
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid URL: URL manipulation detected"
+        )
     
     try:
         async with httpx.AsyncClient(timeout=60.0) as client:
