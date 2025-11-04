@@ -1,9 +1,11 @@
 from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, update
 from typing import Optional
 from pydantic import BaseModel, Field
 from datetime import datetime
+import httpx
 
 from app.db.database import get_db
 from app.services.meshy_service import MeshyService
@@ -238,3 +240,76 @@ async def list_tasks(
     
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/proxy")
+async def proxy_model_file(
+    request: Request,
+    url: str
+):
+    """
+    Proxy endpoint to download model files from Meshy.ai
+    This bypasses CORS issues by downloading the file on the backend
+    and serving it with appropriate CORS headers
+    
+    Security: Only allows URLs from the trusted Meshy.ai assets domain
+    to prevent SSRF attacks and unauthorized resource access
+    """
+    # Check rate limit
+    await rate_limiter.check_rate_limit(request)
+    
+    # SSRF Protection: Strict validation that the URL is from Meshy's trusted domain
+    # This prevents attackers from using this endpoint to access internal resources
+    # or make requests to arbitrary external services
+    ALLOWED_DOMAIN = "https://assets.meshy.ai/"
+    if not url.startswith(ALLOWED_DOMAIN):
+        raise HTTPException(
+            status_code=400, 
+            detail=f"Invalid URL: Only Meshy assets from {ALLOWED_DOMAIN} are allowed"
+        )
+    
+    # Additional validation: ensure no URL manipulation tricks (e.g., @, .., etc)
+    if "@" in url or ".." in url:
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid URL: URL manipulation detected"
+        )
+    
+    try:
+        async with httpx.AsyncClient(timeout=60.0) as client:
+            # Stream the file from Meshy using aiter_bytes for memory efficiency
+            # SSRF Note: URL is validated above to only allow https://assets.meshy.ai/ domain
+            # Additional validation blocks URL manipulation (@ and .. characters)
+            # This is a controlled proxy for a trusted external service (Meshy.ai)
+            async with client.stream("GET", url) as response:  # nosec - URL validated above
+                response.raise_for_status()
+                
+                # Get content type from the response
+                content_type = response.headers.get("content-type", "application/octet-stream")
+                
+                # Extract filename from URL or use default
+                filename = "model.glb"
+                if "/" in url:
+                    url_filename = url.split("/")[-1].split("?")[0]  # Remove query params
+                    if url_filename:
+                        filename = url_filename
+                
+                # Stream the response content efficiently
+                async def stream_generator():
+                    async for chunk in response.aiter_bytes(chunk_size=8192):
+                        yield chunk
+                
+                # Return the file with appropriate headers
+                return StreamingResponse(
+                    stream_generator(),
+                    media_type=content_type,
+                    headers={
+                        "Content-Disposition": f'attachment; filename="{filename}"',
+                        "Cache-Control": "public, max-age=3600"
+                    }
+                )
+    
+    except httpx.HTTPStatusError as e:
+        raise HTTPException(status_code=e.response.status_code, detail=f"Failed to fetch file: {str(e)}")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error proxying file: {str(e)}")

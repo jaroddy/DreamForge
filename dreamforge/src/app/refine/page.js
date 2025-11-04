@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import dynamic from 'next/dynamic';
-import MeshyService from '../services/meshyService';
+import MeshyService, { getProxiedUrl } from '../services/meshyService';
 import ApiService from '../services/apiService';
 import { useFileUrl } from '../context/fileUrlContext';
 import { ToastContainer, toast } from 'react-toastify';
@@ -59,10 +59,11 @@ const RefinePage = () => {
                 if (completedTask.status === 'SUCCEEDED') {
                     toast.success('Model refined successfully!');
                     
-                    // Update file data
+                    // Update file data with proxied URLs to fix CORS issues
+                    const modelUrl = completedTask.model_urls?.glb || completedTask.model_urls?.obj || fileData.fileUrl;
                     setFileData({
                         ...fileData,
-                        fileUrl: completedTask.model_urls?.glb || completedTask.model_urls?.obj || fileData.fileUrl,
+                        fileUrl: getProxiedUrl(modelUrl),
                         meshyData: completedTask,
                         textureUrl: completedTask.texture_urls?.base_color || null
                     });
