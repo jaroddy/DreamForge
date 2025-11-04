@@ -11,6 +11,9 @@ const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY 
 export default function RootLayout({ children }) {
   return (
     <html lang="en">
+      <head>
+        <script type="module" src="https://ajax.googleapis.com/ajax/libs/model-viewer/3.5.0/model-viewer.min.js" async />
+      </head>
       <Elements stripe={stripePromise}>
         <FileUrlProvider>
           <body className="font-sans">
