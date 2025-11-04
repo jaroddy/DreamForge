@@ -1,11 +1,12 @@
 from fastapi import APIRouter, Depends, HTTPException, Request
-from fastapi.responses import StreamingResponse
+from fastapi.responses import StreamingResponse, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, update
 from typing import Optional
 from pydantic import BaseModel, Field
 from datetime import datetime
 import httpx
+import logging
 
 from app.db.database import get_db
 from app.services.meshy_service import MeshyService
@@ -14,6 +15,11 @@ from app.middleware.session_manager import SessionManager
 from app.middleware.rate_limiter import rate_limiter
 
 router = APIRouter(prefix="/api/meshy", tags=["meshy"])
+logger = logging.getLogger(__name__)
+
+# Minimum file size in bytes for GLB files - GLB files smaller than this are likely corrupt
+# A valid GLB file has a 12-byte header + JSON chunk + binary chunk, so 100 bytes is a reasonable minimum
+MIN_GLB_FILE_SIZE = 100
 
 
 class PreviewRequest(BaseModel):
@@ -247,7 +253,6 @@ async def proxy_options():
     """
     Handle CORS preflight requests for the proxy endpoint
     """
-    from fastapi.responses import Response
     return Response(
         status_code=204,
         headers={
@@ -303,7 +308,7 @@ async def proxy_model_file(
                 
                 # Check content length to avoid streaming empty or corrupt files
                 content_length = response.headers.get("content-length")
-                if content_length and int(content_length) < 100:
+                if content_length and int(content_length) < MIN_GLB_FILE_SIZE:
                     raise HTTPException(
                         status_code=400,
                         detail=f"File too small ({content_length} bytes), possibly corrupt or empty"
@@ -346,20 +351,14 @@ async def proxy_model_file(
                 )
     
     except httpx.HTTPStatusError as e:
-        import logging
-        logger = logging.getLogger(__name__)
         logger.error(f"HTTP error fetching file from {url}: {e.response.status_code}")
         raise HTTPException(
             status_code=e.response.status_code, 
             detail=f"Failed to fetch file from Meshy: HTTP {e.response.status_code}"
         )
     except httpx.TimeoutException as e:
-        import logging
-        logger = logging.getLogger(__name__)
         logger.error(f"Timeout fetching file from {url}: {str(e)}")
         raise HTTPException(status_code=504, detail="Timeout fetching file from Meshy")
     except Exception as e:
-        import logging
-        logger = logging.getLogger(__name__)
         logger.error(f"Error proxying file from {url}: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Error proxying file: {str(e)}")
