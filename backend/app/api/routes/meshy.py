@@ -1,11 +1,12 @@
 from fastapi import APIRouter, Depends, HTTPException, Request
-from fastapi.responses import StreamingResponse
+from fastapi.responses import StreamingResponse, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, update
 from typing import Optional
 from pydantic import BaseModel, Field
 from datetime import datetime
 import httpx
+import logging
 
 from app.db.database import get_db
 from app.services.meshy_service import MeshyService
@@ -14,6 +15,13 @@ from app.middleware.session_manager import SessionManager
 from app.middleware.rate_limiter import rate_limiter
 
 router = APIRouter(prefix="/api/meshy", tags=["meshy"])
+logger = logging.getLogger(__name__)
+
+# Minimum file size in bytes for GLB files - GLB files smaller than this are likely corrupt
+# A valid GLB file has a 12-byte header + JSON chunk header (8 bytes) + minimal JSON (few bytes)
+# + binary chunk header (8 bytes) + binary data. We use 100 bytes as a practical minimum
+# to catch obviously corrupt files while allowing small test models.
+MIN_GLB_FILE_SIZE = 100
 
 
 class PreviewRequest(BaseModel):
@@ -242,6 +250,22 @@ async def list_tasks(
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@router.options("/proxy")
+async def proxy_options():
+    """
+    Handle CORS preflight requests for the proxy endpoint
+    """
+    return Response(
+        status_code=204,
+        headers={
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Methods": "GET, OPTIONS",
+            "Access-Control-Allow-Headers": "Content-Type, Authorization",
+            "Access-Control-Max-Age": "3600"
+        }
+    )
+
+
 @router.get("/proxy")
 async def proxy_model_file(
     request: Request,
@@ -276,7 +300,7 @@ async def proxy_model_file(
         )
     
     try:
-        async with httpx.AsyncClient(timeout=60.0) as client:
+        async with httpx.AsyncClient(timeout=60.0, follow_redirects=True) as client:
             # Stream the file from Meshy using aiter_bytes for memory efficiency
             # SSRF Note: URL is validated above to only allow https://assets.meshy.ai/ domain
             # Additional validation blocks URL manipulation (@ and .. characters)
@@ -284,10 +308,32 @@ async def proxy_model_file(
             async with client.stream("GET", url) as response:  # nosec - URL validated above
                 response.raise_for_status()
                 
-                # Get content type from the response
+                # Check content length to avoid streaming empty or corrupt files
+                content_length = response.headers.get("content-length")
+                if content_length:
+                    try:
+                        size = int(content_length)
+                        if size < MIN_GLB_FILE_SIZE:
+                            raise HTTPException(
+                                status_code=400,
+                                detail=f"File too small ({size} bytes), possibly corrupt or empty"
+                            )
+                    except ValueError:
+                        logger.warning(f"Invalid content-length header: {content_length}")
+                
+                # Determine content type based on file extension or response header
                 content_type = response.headers.get("content-type", "application/octet-stream")
                 
-                # Extract filename from URL or use default
+                # Extract the file path without query parameters for accurate extension detection
+                url_path = url.split("?")[0].lower()
+                
+                # Override content type for GLB files to ensure proper handling
+                if url_path.endswith('.glb'):
+                    content_type = "model/gltf-binary"
+                elif url_path.endswith('.gltf'):
+                    content_type = "model/gltf+json"
+                
+                # Extract filename from URL for informational purposes
                 filename = "model.glb"
                 if "/" in url:
                     url_filename = url.split("/")[-1].split("?")[0]  # Remove query params
@@ -299,17 +345,30 @@ async def proxy_model_file(
                     async for chunk in response.aiter_bytes(chunk_size=8192):
                         yield chunk
                 
-                # Return the file with appropriate headers
+                # Return the file with appropriate headers for inline viewing
+                # CORS headers are required for model-viewer to load the file
+                # Content-Disposition is set to inline (not attachment) to allow viewing
                 return StreamingResponse(
                     stream_generator(),
                     media_type=content_type,
                     headers={
-                        "Content-Disposition": f'attachment; filename="{filename}"',
+                        "Content-Disposition": f'inline; filename="{filename}"',
+                        "Access-Control-Allow-Origin": "*",
+                        "Access-Control-Allow-Methods": "GET, OPTIONS",
+                        "Access-Control-Allow-Headers": "Content-Type",
                         "Cache-Control": "public, max-age=3600"
                     }
                 )
     
     except httpx.HTTPStatusError as e:
-        raise HTTPException(status_code=e.response.status_code, detail=f"Failed to fetch file: {str(e)}")
+        logger.error(f"HTTP error fetching file from {url}: {e.response.status_code}")
+        raise HTTPException(
+            status_code=e.response.status_code, 
+            detail=f"Failed to fetch file from Meshy: HTTP {e.response.status_code}"
+        )
+    except httpx.TimeoutException as e:
+        logger.error(f"Timeout fetching file from {url}: {str(e)}")
+        raise HTTPException(status_code=504, detail="Timeout fetching file from Meshy")
     except Exception as e:
+        logger.error(f"Error proxying file from {url}: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Error proxying file: {str(e)}")
