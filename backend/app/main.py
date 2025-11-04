@@ -2,6 +2,9 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from contextlib import asynccontextmanager
+import logging
+import time
+import uuid
 
 from app.core.config import settings
 from app.db.database import init_db
@@ -25,6 +28,12 @@ app = FastAPI(
     lifespan=lifespan
 )
 
+# Configure basic logging format if not already set by uvicorn
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s %(levelname)s %(name)s: %(message)s"
+)
+
 # CORS middleware
 app.add_middleware(
     CORSMiddleware,
@@ -32,8 +41,46 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
-    expose_headers=["X-Session-ID"]
+    # Expose session and streaming-related headers for diagnostics
+    expose_headers=["X-Session-ID", "Content-Length", "Content-Range", "ETag", "Last-Modified"],
 )
+
+# Correlation + access logging middleware
+@app.middleware("http")
+async def access_logger(request: Request, call_next):
+    # Create per-request ID
+    request_id = str(uuid.uuid4())
+    request.state.request_id = request_id
+
+    method = request.method
+    path = request.url.path
+    # Avoid logging sensitive query parameters; just show whether a query exists and its length
+    query = request.url.query
+    query_info = f"len={len(query)}" if query else "none"
+    client_ip = request.client.host if request.client else "-"
+    range_header = request.headers.get("range")
+    referer = request.headers.get("referer")
+
+    logging.getLogger(__name__).info(
+        f"[{request_id}] REQ {method} {path} query={query_info} ip={client_ip} range={range_header} referer={referer}"
+    )
+
+    t0 = time.perf_counter()
+    try:
+        response = await call_next(request)
+    except Exception as e:
+        dt = int((time.perf_counter() - t0) * 1000)
+        logging.getLogger(__name__).exception(f"[{request_id}] EXC {method} {path} after {dt}ms: {e}")
+        raise
+
+    # Attach the request ID for client correlation
+    response.headers["X-Request-ID"] = request_id
+
+    dt = int((time.perf_counter() - t0) * 1000)
+    logging.getLogger(__name__).info(
+        f"[{request_id}] RESP {method} {path} status={response.status_code} dur={dt}ms"
+    )
+    return response
 
 
 # Security headers middleware

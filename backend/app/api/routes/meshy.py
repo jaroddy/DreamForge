@@ -7,6 +7,7 @@ from pydantic import BaseModel, Field
 from datetime import datetime
 import httpx
 import logging
+from urllib.parse import urlparse, parse_qsl, urlencode, urlunparse
 
 from app.db.database import get_db
 from app.services.meshy_service import MeshyService
@@ -22,6 +23,28 @@ logger = logging.getLogger(__name__)
 # + binary chunk header (8 bytes) + binary data. We use 100 bytes as a practical minimum
 # to catch obviously corrupt files while allowing small test models.
 MIN_GLB_FILE_SIZE = 100
+
+
+def _redact_meshy_url(url: str) -> str:
+    """
+    Redact sensitive query parameters in Meshy signed URLs for logging.
+    Masks values for Signature, Expires, Key-Pair-Id (case-insensitive).
+    """
+    try:
+        parts = urlparse(url)
+        q = parse_qsl(parts.query, keep_blank_values=True)
+        redacted = []
+        for k, v in q:
+            if k.lower() in ("signature", "expires", "key-pair-id", "x-amz-signature", "x-amz-expires"):
+                redacted.append((k, "***"))
+            else:
+                if len(v) > 64:
+                    v = v[:16] + "…"
+                redacted.append((k, v))
+        new_query = urlencode(redacted)
+        return urlunparse((parts.scheme, parts.netloc, parts.path, parts.params, new_query, parts.fragment))
+    except Exception:
+        return "<unparseable-url>"
 
 
 class PreviewRequest(BaseModel):
@@ -49,18 +72,11 @@ async def create_preview(
     db: AsyncSession = Depends(get_db)
 ):
     """Create a new Text to 3D Preview task"""
-    # Check rate limit
     await rate_limiter.check_rate_limit(request)
-    
-    # Get or create session
     session_id = await SessionManager.get_or_create_session(request, db)
-    
-    # Check for session abuse
     if await SessionManager.check_session_abuse(session_id, db):
         raise HTTPException(status_code=403, detail="Session blocked")
-    
     try:
-        # Call Meshy API
         meshy_service = MeshyService()
         result = await meshy_service.create_preview(
             prompt=preview_req.prompt,
@@ -71,8 +87,6 @@ async def create_preview(
             target_polycount=preview_req.target_polycount,
             should_remesh=preview_req.should_remesh
         )
-        
-        # Store task in database
         task_id = result.get("result")
         meshy_task = MeshyTask(
             task_id=task_id,
@@ -83,15 +97,14 @@ async def create_preview(
         )
         db.add(meshy_task)
         await db.commit()
-        
         return {
             "success": True,
             "task_id": task_id,
             "session_id": session_id,
             "message": "Preview task created successfully"
         }
-    
     except Exception as e:
+        logger.exception("Error in create_preview")
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -102,18 +115,11 @@ async def create_refine(
     db: AsyncSession = Depends(get_db)
 ):
     """Create a new Text to 3D Refine task"""
-    # Check rate limit
     await rate_limiter.check_rate_limit(request)
-    
-    # Get or create session
     session_id = await SessionManager.get_or_create_session(request, db)
-    
-    # Check for session abuse
     if await SessionManager.check_session_abuse(session_id, db):
         raise HTTPException(status_code=403, detail="Session blocked")
-    
     try:
-        # Call Meshy API
         meshy_service = MeshyService()
         result = await meshy_service.create_refine(
             preview_task_id=refine_req.preview_task_id,
@@ -122,8 +128,6 @@ async def create_refine(
             texture_image_url=refine_req.texture_image_url,
             ai_model=refine_req.ai_model
         )
-        
-        # Store task in database
         task_id = result.get("result")
         meshy_task = MeshyTask(
             task_id=task_id,
@@ -135,15 +139,14 @@ async def create_refine(
         )
         db.add(meshy_task)
         await db.commit()
-        
         return {
             "success": True,
             "task_id": task_id,
             "session_id": session_id,
             "message": "Refine task created successfully"
         }
-    
     except Exception as e:
+        logger.exception("Error in create_refine")
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -154,28 +157,15 @@ async def get_task(
     db: AsyncSession = Depends(get_db)
 ):
     """Get the status of a Text to 3D task"""
-    # Check rate limit
     await rate_limiter.check_rate_limit(request)
-    
     try:
-        # Call Meshy API
         meshy_service = MeshyService()
         result = await meshy_service.get_task(task_id)
-        
-        # Update task in database if it exists
-        db_result = await db.execute(
-            select(MeshyTask).where(MeshyTask.task_id == task_id)
-        )
+        db_result = await db.execute(select(MeshyTask).where(MeshyTask.task_id == task_id))
         task = db_result.scalar_one_or_none()
-        
         if task:
             status = result.get("status", "PENDING")
-            update_data = {
-                "status": status,
-                "updated_at": datetime.utcnow()
-            }
-            
-            # Add model URLs if available
+            update_data = {"status": status, "updated_at": datetime.utcnow()}
             if status == "SUCCEEDED":
                 if result.get("model_urls"):
                     model_urls = result["model_urls"]
@@ -185,17 +175,11 @@ async def get_task(
                     texture_urls = result["texture_urls"]
                     if "base_color" in texture_urls:
                         update_data["texture_url"] = texture_urls["base_color"]
-            
-            await db.execute(
-                update(MeshyTask)
-                .where(MeshyTask.task_id == task_id)
-                .values(**update_data)
-            )
+            await db.execute(update(MeshyTask).where(MeshyTask.task_id == task_id).values(**update_data))
             await db.commit()
-        
         return result
-    
     except Exception as e:
+        logger.exception("Error in get_task")
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -207,14 +191,9 @@ async def list_tasks(
     db: AsyncSession = Depends(get_db)
 ):
     """List user's Text to 3D tasks"""
-    # Check rate limit
     await rate_limiter.check_rate_limit(request)
-    
-    # Get session
     session_id = await SessionManager.get_or_create_session(request, db)
-    
     try:
-        # Get tasks from database for this session
         result = await db.execute(
             select(MeshyTask)
             .where(MeshyTask.session_id == session_id)
@@ -223,8 +202,6 @@ async def list_tasks(
             .offset((page_num - 1) * page_size)
         )
         tasks = result.scalars().all()
-        
-        # Convert to dict
         tasks_list = [
             {
                 "task_id": task.task_id,
@@ -238,29 +215,26 @@ async def list_tasks(
             }
             for task in tasks
         ]
-        
         return {
             "success": True,
             "tasks": tasks_list,
             "page_num": page_num,
             "page_size": page_size
         }
-    
     except Exception as e:
+        logger.exception("Error in list_tasks")
         raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.options("/proxy")
 async def proxy_options():
-    """
-    Handle CORS preflight requests for the proxy endpoint
-    """
     return Response(
         status_code=204,
         headers={
             "Access-Control-Allow-Origin": "*",
             "Access-Control-Allow-Methods": "GET, OPTIONS",
-            "Access-Control-Allow-Headers": "Content-Type, Authorization",
+            "Access-Control-Allow-Headers": "Content-Type, Authorization, Range",
+            "Access-Control-Expose-Headers": "Content-Length, Content-Range, ETag, Last-Modified",
             "Access-Control-Max-Age": "3600"
         }
     )
@@ -272,103 +246,187 @@ async def proxy_model_file(
     url: str
 ):
     """
-    Proxy endpoint to download model files from Meshy.ai
-    This bypasses CORS issues by downloading the file on the backend
-    and serving it with appropriate CORS headers
-    
-    Security: Only allows URLs from the trusted Meshy.ai assets domain
-    to prevent SSRF attacks and unauthorized resource access
+    Streaming proxy for Meshy model files.
+    - Passes through Range requests (206) without buffering.
+    - Streams full content with a single resume attempt on upstream early close.
+    - Sends raw bytes (Accept-Encoding: identity) to avoid decode/length mismatches.
+    - Avoids setting Content-Length for streamed responses (prevents h11 mismatches).
+    - Emits detailed logs keyed by X-Request-ID to diagnose issues.
     """
-    # Check rate limit
     await rate_limiter.check_rate_limit(request)
-    
-    # SSRF Protection: Strict validation that the URL is from Meshy's trusted domain
-    # This prevents attackers from using this endpoint to access internal resources
-    # or make requests to arbitrary external services
+
+    request_id = getattr(request.state, "request_id", "-")
+    client_ip = request.client.host if request.client else "-"
+    incoming_range = request.headers.get("range")
+    redacted_url = _redact_meshy_url(url)
+    logger.info(f"[{request_id}] /proxy start ip={client_ip} range={incoming_range} url={redacted_url}")
+
     ALLOWED_DOMAIN = "https://assets.meshy.ai/"
     if not url.startswith(ALLOWED_DOMAIN):
-        raise HTTPException(
-            status_code=400, 
-            detail=f"Invalid URL: Only Meshy assets from {ALLOWED_DOMAIN} are allowed"
-        )
-    
-    # Additional validation: ensure no URL manipulation tricks (e.g., @, .., etc)
+        logger.warning(f"[{request_id}] blocked non-allowed domain url={redacted_url}")
+        raise HTTPException(status_code=400, detail=f"Invalid URL: Only Meshy assets from {ALLOWED_DOMAIN} are allowed")
     if "@" in url or ".." in url:
-        raise HTTPException(
-            status_code=400,
-            detail="Invalid URL: URL manipulation detected"
-        )
-    
-    try:
-        async with httpx.AsyncClient(timeout=60.0, follow_redirects=True) as client:
-            # Stream the file from Meshy using aiter_bytes for memory efficiency
-            # SSRF Note: URL is validated above to only allow https://assets.meshy.ai/ domain
-            # Additional validation blocks URL manipulation (@ and .. characters)
-            # This is a controlled proxy for a trusted external service (Meshy.ai)
-            async with client.stream("GET", url) as response:  # nosec - URL validated above
-                response.raise_for_status()
-                
-                # Check content length to avoid streaming empty or corrupt files
-                content_length = response.headers.get("content-length")
-                if content_length:
+        logger.warning(f"[{request_id}] blocked url manipulation url={redacted_url}")
+        raise HTTPException(status_code=400, detail="Invalid URL: URL manipulation detected")
+
+    # RANGE path: keep client open for generator lifetime
+    if incoming_range:
+        client = httpx.AsyncClient(timeout=60.0, follow_redirects=True)
+        try:
+            req = client.build_request("GET", url, headers={"Accept-Encoding": "identity", "Range": incoming_range})
+            upstream = await client.send(req, stream=True)
+            status_code = upstream.status_code
+
+            # Determine content type from upstream header or URL
+            content_type = upstream.headers.get("content-type", "application/octet-stream")
+            url_path = url.split("?")[0].lower()
+            if url_path.endswith(".glb"):
+                content_type = "model/gltf-binary"
+            elif url_path.endswith(".gltf"):
+                content_type = "model/gltf+json"
+
+            # Filename
+            filename = "model.glb"
+            if "/" in url:
+                url_filename = url.split("/")[-1].split("?")[0]
+                if url_filename:
+                    filename = url_filename
+
+            cl = upstream.headers.get("content-length")
+            cr = upstream.headers.get("content-range")
+            ar = upstream.headers.get("accept-ranges")
+            ce = upstream.headers.get("content-encoding")
+            logger.info(f"[{request_id}] upstream RANGE resp status={status_code} cl={cl} cr={cr} ar={ar} ce={ce}")
+
+            headers = {
+                "Content-Disposition": f'inline; filename="{filename}"',
+                "Access-Control-Allow-Origin": "*",
+                "Access-Control-Allow-Methods": "GET, OPTIONS",
+                "Access-Control-Allow-Headers": "Content-Type, Authorization, Range",
+                "Access-Control-Expose-Headers": "Content-Length, Content-Range, ETag, Last-Modified",
+                "Cache-Control": "public, max-age=3600",
+            }
+            content_range = upstream.headers.get("content-range")
+            etag = upstream.headers.get("etag")
+            last_modified = upstream.headers.get("last-modified")
+            accept_ranges = upstream.headers.get("accept-ranges") or "bytes"
+            headers["Accept-Ranges"] = accept_ranges
+            if content_range:
+                headers["Content-Range"] = content_range
+            if etag:
+                headers["ETag"] = etag
+            if last_modified:
+                headers["Last-Modified"] = last_modified
+
+            async def upstream_iter():
+                bytes_out = 0
+                try:
+                    async for chunk in upstream.aiter_raw():
+                        if chunk:
+                            bytes_out += len(chunk)
+                            yield chunk
+                    logger.info(f"[{request_id}] RANGE stream complete bytes_sent={bytes_out}")
+                except Exception as e:
+                    logger.exception(f"[{request_id}] RANGE stream error after bytes_sent={bytes_out}: {e}")
+                    raise
+                finally:
                     try:
-                        size = int(content_length)
-                        if size < MIN_GLB_FILE_SIZE:
-                            raise HTTPException(
-                                status_code=400,
-                                detail=f"File too small ({size} bytes), possibly corrupt or empty"
-                            )
-                    except ValueError:
-                        logger.warning(f"Invalid content-length header: {content_length}")
-                
-                # Determine content type based on file extension or response header
-                content_type = response.headers.get("content-type", "application/octet-stream")
-                
-                # Extract the file path without query parameters for accurate extension detection
-                url_path = url.split("?")[0].lower()
-                
-                # Override content type for GLB files to ensure proper handling
-                if url_path.endswith('.glb'):
-                    content_type = "model/gltf-binary"
-                elif url_path.endswith('.gltf'):
-                    content_type = "model/gltf+json"
-                
-                # Extract filename from URL for informational purposes
-                filename = "model.glb"
-                if "/" in url:
-                    url_filename = url.split("/")[-1].split("?")[0]  # Remove query params
-                    if url_filename:
-                        filename = url_filename
-                
-                # Stream the response content efficiently
-                async def stream_generator():
-                    async for chunk in response.aiter_bytes(chunk_size=8192):
-                        yield chunk
-                
-                # Return the file with appropriate headers for inline viewing
-                # CORS headers are required for model-viewer to load the file
-                # Content-Disposition is set to inline (not attachment) to allow viewing
-                return StreamingResponse(
-                    stream_generator(),
-                    media_type=content_type,
-                    headers={
-                        "Content-Disposition": f'inline; filename="{filename}"',
-                        "Access-Control-Allow-Origin": "*",
-                        "Access-Control-Allow-Methods": "GET, OPTIONS",
-                        "Access-Control-Allow-Headers": "Content-Type",
-                        "Cache-Control": "public, max-age=3600"
-                    }
+                        await upstream.aclose()
+                    except Exception:
+                        pass
+                    try:
+                        await client.aclose()
+                    except Exception:
+                        pass
+
+            return StreamingResponse(upstream_iter(), media_type=content_type, headers=headers, status_code=status_code)
+        except Exception:
+            # Ensure client is closed on early failure before StreamingResponse is built
+            try:
+                await client.aclose()
+            except Exception:
+                pass
+            raise
+
+    # Non-range full stream with resume-once; keep client for generator lifetime
+    client = httpx.AsyncClient(timeout=60.0, follow_redirects=True)
+
+    url_path = url.split("?")[0].lower()
+    content_type = "application/octet-stream"
+    if url_path.endswith(".glb"):
+        content_type = "model/gltf-binary"
+    elif url_path.endswith(".gltf"):
+        content_type = "model/gltf+json"
+
+    filename = "model.glb"
+    if "/" in url:
+        url_filename = url.split("/")[-1].split("?")[0]
+        if url_filename:
+            filename = url_filename
+
+    headers = {
+        "Content-Disposition": f'inline; filename="{filename}"',
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Methods": "GET, OPTIONS",
+        "Access-Control-Allow-Headers": "Content-Type, Authorization, Range",
+        "Access-Control-Expose-Headers": "Content-Length, Content-Range, ETag, Last-Modified",
+        "Cache-Control": "public, max-age=3600",
+        "Accept-Ranges": "bytes",
+    }
+
+    async def stream_with_resume():
+        bytes_sent = 0
+        attempts = 0
+        max_retries = 1
+        headers_base = {"Accept-Encoding": "identity"}
+
+        try:
+            while True:
+                req_headers = dict(headers_base)
+                if bytes_sent > 0:
+                    req_headers["Range"] = f"bytes={bytes_sent}-"
+                    logger.info(f"[{request_id}] resume attempt={attempts} from={bytes_sent}")
+                req = client.build_request("GET", url, headers=req_headers)
+                resp = await client.send(req, stream=True)
+
+                cl = resp.headers.get("content-length")
+                cr = resp.headers.get("content-range")
+                ar = resp.headers.get("accept-ranges")
+                ce = resp.headers.get("content-encoding")
+                logger.info(
+                    f"[{request_id}] upstream resp status={resp.status_code} "
+                    f"cl={cl} cr={cr} ar={ar} ce={ce} bytes_sent_so_far={bytes_sent}"
                 )
-    
-    except httpx.HTTPStatusError as e:
-        logger.error(f"HTTP error fetching file from {url}: {e.response.status_code}")
-        raise HTTPException(
-            status_code=e.response.status_code, 
-            detail=f"Failed to fetch file from Meshy: HTTP {e.response.status_code}"
-        )
-    except httpx.TimeoutException as e:
-        logger.error(f"Timeout fetching file from {url}: {str(e)}")
-        raise HTTPException(status_code=504, detail="Timeout fetching file from Meshy")
-    except Exception as e:
-        logger.error(f"Error proxying file from {url}: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Error proxying file: {str(e)}")
+
+                try:
+                    async for chunk in resp.aiter_raw():
+                        if chunk:
+                            bytes_sent += len(chunk)
+                            yield chunk
+                    logger.info(f"[{request_id}] full stream complete bytes_sent={bytes_sent}")
+                    return
+                except httpx.ReadError as e:
+                    attempts += 1
+                    logger.warning(f"[{request_id}] upstream read error after bytes_sent={bytes_sent} attempts={attempts}: {e}")
+                    await resp.aclose()
+                    if attempts <= max_retries and bytes_sent > 0:
+                        continue  # try resume
+                    else:
+                        logger.error(f"[{request_id}] giving up after attempts={attempts} bytes_sent={bytes_sent}")
+                        return
+                except Exception as e:
+                    logger.exception(f"[{request_id}] streaming error after bytes_sent={bytes_sent}: {e}")
+                    await resp.aclose()
+                    return
+                finally:
+                    try:
+                        await resp.aclose()
+                    except Exception:
+                        pass
+        finally:
+            try:
+                await client.aclose()
+            except Exception:
+                pass
+
+    return StreamingResponse(stream_with_resume(), media_type=content_type, headers=headers)
