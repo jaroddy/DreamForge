@@ -242,6 +242,23 @@ async def list_tasks(
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@router.options("/proxy")
+async def proxy_options():
+    """
+    Handle CORS preflight requests for the proxy endpoint
+    """
+    from fastapi.responses import Response
+    return Response(
+        status_code=204,
+        headers={
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Methods": "GET, OPTIONS",
+            "Access-Control-Allow-Headers": "Content-Type, Authorization",
+            "Access-Control-Max-Age": "3600"
+        }
+    )
+
+
 @router.get("/proxy")
 async def proxy_model_file(
     request: Request,
@@ -284,10 +301,16 @@ async def proxy_model_file(
             async with client.stream("GET", url) as response:  # nosec - URL validated above
                 response.raise_for_status()
                 
-                # Get content type from the response
+                # Determine content type based on file extension or response header
                 content_type = response.headers.get("content-type", "application/octet-stream")
                 
-                # Extract filename from URL or use default
+                # Override content type for GLB files to ensure proper handling
+                if url.endswith('.glb') or url.endswith('.GLB'):
+                    content_type = "model/gltf-binary"
+                elif url.endswith('.gltf') or url.endswith('.GLTF'):
+                    content_type = "model/gltf+json"
+                
+                # Extract filename from URL for informational purposes
                 filename = "model.glb"
                 if "/" in url:
                     url_filename = url.split("/")[-1].split("?")[0]  # Remove query params
@@ -299,12 +322,17 @@ async def proxy_model_file(
                     async for chunk in response.aiter_bytes(chunk_size=8192):
                         yield chunk
                 
-                # Return the file with appropriate headers
+                # Return the file with appropriate headers for inline viewing
+                # CORS headers are required for model-viewer to load the file
+                # Content-Disposition is set to inline (not attachment) to allow viewing
                 return StreamingResponse(
                     stream_generator(),
                     media_type=content_type,
                     headers={
-                        "Content-Disposition": f'attachment; filename="{filename}"',
+                        "Content-Disposition": f'inline; filename="{filename}"',
+                        "Access-Control-Allow-Origin": "*",
+                        "Access-Control-Allow-Methods": "GET, OPTIONS",
+                        "Access-Control-Allow-Headers": "Content-Type",
                         "Cache-Control": "public, max-age=3600"
                     }
                 )
