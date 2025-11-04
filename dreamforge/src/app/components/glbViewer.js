@@ -27,6 +27,19 @@ const GlbViewer = ({ fileURL, width = '600px', height = '400px' }) => {
 
     // Dynamically load the model-viewer script if not already loaded
     if (typeof window !== 'undefined' && !customElements.get('model-viewer')) {
+      // Check if script is already being loaded
+      const existingScript = document.querySelector('script[src*="model-viewer"]');
+      if (existingScript) {
+        // Script is already loading, wait for it
+        const checkLoaded = setInterval(() => {
+          if (customElements.get('model-viewer')) {
+            setScriptLoaded(true);
+            clearInterval(checkLoaded);
+          }
+        }, 100);
+        return () => clearInterval(checkLoaded);
+      }
+
       const script = document.createElement('script');
       script.type = 'module';
       // Using Google's CDN for model-viewer
@@ -38,24 +51,34 @@ const GlbViewer = ({ fileURL, width = '600px', height = '400px' }) => {
       };
       document.head.appendChild(script);
       
-      return () => {
-        // Cleanup: remove script if component unmounts before loading
-        if (script.parentNode) {
-          document.head.removeChild(script);
-        }
-      };
+      // No cleanup needed - script should remain for other component instances
     }
   }, []);
 
-  const handleLoad = () => {
-    setIsLoaded(true);
-    setError(null);
-  };
+  useEffect(() => {
+    if (!scriptLoaded || !viewerRef.current) return;
 
-  const handleError = (event) => {
-    console.error('Model viewer error:', event);
-    setError('Failed to load 3D model. Please check the file URL.');
-  };
+    const viewer = viewerRef.current;
+
+    const handleLoad = () => {
+      setIsLoaded(true);
+      setError(null);
+    };
+
+    const handleError = (event) => {
+      console.error('Model viewer error:', event);
+      setError('Failed to load 3D model. Please check the file URL.');
+    };
+
+    // Add event listeners for model-viewer web component
+    viewer.addEventListener('load', handleLoad);
+    viewer.addEventListener('error', handleError);
+
+    return () => {
+      viewer.removeEventListener('load', handleLoad);
+      viewer.removeEventListener('error', handleError);
+    };
+  }, [scriptLoaded]);
 
   if (!fileURL) {
     return (
@@ -184,8 +207,6 @@ const GlbViewer = ({ fileURL, width = '600px', height = '400px' }) => {
             backgroundColor: '#f0f0f0',
             borderRadius: '8px'
           }}
-          onLoad={handleLoad}
-          onError={handleError}
         />
       )}
     </div>
