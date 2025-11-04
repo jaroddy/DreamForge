@@ -2,6 +2,8 @@
 'use client'
 import Navbar from './components/navbar'
 import { FileUrlProvider } from './context/fileUrlContext';
+import { TokenProvider } from './context/tokenContext';
+import { ConversationProvider } from './context/conversationContext';
 import './globals.css';
 import { Elements } from '@stripe/react-stripe-js';
 import { loadStripe } from '@stripe/stripe-js';
@@ -12,12 +14,16 @@ export default function RootLayout({ children }) {
   return (
     <html lang="en">
       <Elements stripe={stripePromise}>
-        <FileUrlProvider>
-          <body className="font-sans">
-            <Navbar />
-            {children}
-          </body>
-        </FileUrlProvider>
+        <TokenProvider>
+          <ConversationProvider>
+            <FileUrlProvider>
+              <body className="font-sans">
+                <Navbar />
+                {children}
+              </body>
+            </FileUrlProvider>
+          </ConversationProvider>
+        </TokenProvider>
       </Elements>
     </html>
   );

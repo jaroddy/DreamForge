@@ -38,9 +38,7 @@ const Home = () => {
                 Start Creating
               </button>
               
-              <div className="mt-4 text-sm text-gray-500 text-center">
-                ✨ Powered by Meshy AI
-              </div>
+
             </div>
             
             {/* Upload STL Option */}
