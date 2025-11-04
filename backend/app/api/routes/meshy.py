@@ -293,13 +293,21 @@ async def proxy_model_file(
         )
     
     try:
-        async with httpx.AsyncClient(timeout=60.0) as client:
+        async with httpx.AsyncClient(timeout=60.0, follow_redirects=True) as client:
             # Stream the file from Meshy using aiter_bytes for memory efficiency
             # SSRF Note: URL is validated above to only allow https://assets.meshy.ai/ domain
             # Additional validation blocks URL manipulation (@ and .. characters)
             # This is a controlled proxy for a trusted external service (Meshy.ai)
             async with client.stream("GET", url) as response:  # nosec - URL validated above
                 response.raise_for_status()
+                
+                # Check content length to avoid streaming empty or corrupt files
+                content_length = response.headers.get("content-length")
+                if content_length and int(content_length) < 100:
+                    raise HTTPException(
+                        status_code=400,
+                        detail=f"File too small ({content_length} bytes), possibly corrupt or empty"
+                    )
                 
                 # Determine content type based on file extension or response header
                 content_type = response.headers.get("content-type", "application/octet-stream")
@@ -338,6 +346,20 @@ async def proxy_model_file(
                 )
     
     except httpx.HTTPStatusError as e:
-        raise HTTPException(status_code=e.response.status_code, detail=f"Failed to fetch file: {str(e)}")
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f"HTTP error fetching file from {url}: {e.response.status_code}")
+        raise HTTPException(
+            status_code=e.response.status_code, 
+            detail=f"Failed to fetch file from Meshy: HTTP {e.response.status_code}"
+        )
+    except httpx.TimeoutException as e:
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f"Timeout fetching file from {url}: {str(e)}")
+        raise HTTPException(status_code=504, detail="Timeout fetching file from Meshy")
     except Exception as e:
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f"Error proxying file from {url}: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Error proxying file: {str(e)}")
