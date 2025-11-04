@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import MeshyService, { getProxiedUrl } from '../services/meshyService';
 import { useFileUrl } from '../context/fileUrlContext';
+import TokenDisplay from '../components/TokenDisplay';
 import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 
@@ -96,12 +97,13 @@ const MyModelsPage = () => {
     };
 
     return (
-        <div className="min-h-screen bg-gradient-to-bl from-blue-500 to-gray-100">
+        <div className="min-h-screen bg-gradient-to-bl from-blue-500 to-gray-100 transition-opacity duration-500">
             <ToastContainer position={toast.POSITION.TOP_RIGHT} />
+            <TokenDisplay />
             
             <div className="container mx-auto px-4 py-8">
                 <div className="max-w-7xl mx-auto">
-                    <div className="flex justify-between items-center mb-8">
+                    <div className="flex justify-between items-center mb-8 animate-fadeIn">
                         <h1 className="text-4xl font-bold text-white">
                             My 3D Models
                         </h1>
@@ -109,16 +111,16 @@ const MyModelsPage = () => {
                         <div className="space-x-4">
                             <button
                                 onClick={() => router.push('/generate')}
-                                className="px-6 py-3 bg-green-500 hover:bg-green-600 text-white rounded-lg transition duration-300"
+                                className="px-6 py-3 bg-green-500 hover:bg-green-600 text-white rounded-lg transition duration-300 font-medium"
                             >
-                                Generate New Model
+                                ➕ Create New
                             </button>
                             
                             <button
                                 onClick={() => router.push('/')}
-                                className="px-6 py-3 bg-gray-500 hover:bg-gray-600 text-white rounded-lg transition duration-300"
+                                className="px-6 py-3 bg-gray-500 hover:bg-gray-600 text-white rounded-lg transition duration-300 font-medium"
                             >
-                                Home
+                                🏠 Home
                             </button>
                         </div>
                     </div>

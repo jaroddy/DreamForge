@@ -6,9 +6,9 @@ const Home = () => {
   const router = useRouter();
 
   return (
-    <div className="min-h-screen bg-gradient-to-bl from-blue-500 to-gray-100">
+    <div className="min-h-screen bg-gradient-to-bl from-blue-500 to-gray-100 transition-opacity duration-500">
       <div className="container mx-auto px-4 py-8">
-        <div className="text-4xl font-bold text-center mb-8">
+        <div className="text-4xl font-bold text-center mb-8 animate-fadeIn">
           <div className="p-4 rounded-2xl">
             <span className="text-white py-3">DreamForge</span>
           </div>
@@ -18,7 +18,7 @@ const Home = () => {
         </div>
         
         <div className="max-w-5xl mx-auto">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8 animate-slideIn">
             {/* AI Generation Option */}
             <div className="bg-white rounded-2xl shadow-lg p-8 hover:shadow-2xl transition duration-300">
               <div className="text-center mb-6">
