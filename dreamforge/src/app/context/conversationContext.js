@@ -3,6 +3,9 @@ import React, { createContext, useState, useContext, useCallback } from 'react';
 
 const ConversationContext = createContext();
 
+// Maximum length for conversation text in augmented prompts to stay within 600 char limit
+const MAX_CONVERSATION_LENGTH = 200;
+
 export const useConversation = () => {
     const context = useContext(ConversationContext);
     if (!context) {
@@ -39,9 +42,12 @@ export const ConversationProvider = ({ children }) => {
             return basePrompt;
         }
         
-        // Trim conversation text to 200 characters to stay within 600 character limit
-        if (conversationText.length > 200) {
-            conversationText = conversationText.substring(0, 200) + '...';
+        // Trim conversation text to stay within 600 character limit
+        if (conversationText.length > MAX_CONVERSATION_LENGTH) {
+            // Truncate at word boundary for better readability
+            const truncated = conversationText.substring(0, MAX_CONVERSATION_LENGTH);
+            const lastSpaceIndex = truncated.lastIndexOf(' ');
+            conversationText = (lastSpaceIndex > 0 ? truncated.substring(0, lastSpaceIndex) : truncated) + '...';
         }
         
         if (artisticMode) {
