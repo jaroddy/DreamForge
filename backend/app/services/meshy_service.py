@@ -21,6 +21,9 @@ class MeshyService:
         topology: str = "triangle",
         target_polycount: int = 30000,
         should_remesh: bool = True,
+        symmetry_mode: Optional[str] = "auto",
+        is_a_t_pose: bool = False,
+        moderation: Optional[bool] = False,
         **kwargs
     ) -> Dict[str, Any]:
         """
@@ -38,6 +41,12 @@ class MeshyService:
         
         if seed is not None:
             payload["seed"] = seed
+        
+        if symmetry_mode is not None:
+            payload["symmetry_mode"] = symmetry_mode
+            
+        payload["is_a_t_pose"] = is_a_t_pose
+        payload["moderation"] = moderation
         
         # Add any additional parameters
         payload.update(kwargs)
@@ -59,6 +68,7 @@ class MeshyService:
         texture_prompt: Optional[str] = None,
         texture_image_url: Optional[str] = None,
         ai_model: str = "meshy-5",
+        moderation: Optional[bool] = False,
         **kwargs
     ) -> Dict[str, Any]:
         """
@@ -76,6 +86,8 @@ class MeshyService:
         
         if texture_image_url:
             payload["texture_image_url"] = texture_image_url
+            
+        payload["moderation"] = moderation
         
         # Add any additional parameters
         payload.update(kwargs)

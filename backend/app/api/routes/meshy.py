@@ -55,6 +55,9 @@ class PreviewRequest(BaseModel):
     topology: str = Field(default="triangle")
     target_polycount: int = Field(default=30000, ge=100, le=300000)
     should_remesh: bool = Field(default=True)
+    symmetry_mode: Optional[str] = Field(default="auto")
+    is_a_t_pose: bool = Field(default=False)
+    moderation: Optional[bool] = Field(default=False)
 
 
 class RefineRequest(BaseModel):
@@ -63,6 +66,7 @@ class RefineRequest(BaseModel):
     texture_prompt: Optional[str] = Field(None, max_length=600)
     texture_image_url: Optional[str] = None
     ai_model: str = Field(default="meshy-5")
+    moderation: Optional[bool] = Field(default=False)
 
 
 @router.post("/preview")
@@ -85,7 +89,10 @@ async def create_preview(
             seed=preview_req.seed,
             topology=preview_req.topology,
             target_polycount=preview_req.target_polycount,
-            should_remesh=preview_req.should_remesh
+            should_remesh=preview_req.should_remesh,
+            symmetry_mode=preview_req.symmetry_mode,
+            is_a_t_pose=preview_req.is_a_t_pose,
+            moderation=preview_req.moderation
         )
         task_id = result.get("result")
         meshy_task = MeshyTask(
@@ -126,7 +133,8 @@ async def create_refine(
             enable_pbr=refine_req.enable_pbr,
             texture_prompt=refine_req.texture_prompt,
             texture_image_url=refine_req.texture_image_url,
-            ai_model=refine_req.ai_model
+            ai_model=refine_req.ai_model,
+            moderation=refine_req.moderation
         )
         task_id = result.get("result")
         meshy_task = MeshyTask(

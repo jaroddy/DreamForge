@@ -9,7 +9,9 @@ import { useTokens } from '../context/tokenContext';
 import { useConversation } from '../context/conversationContext';
 import TokenDisplay from '../components/TokenDisplay';
 import AdvancedRefineOptions from '../components/AdvancedRefineOptions';
+import ChatWindow from '../components/ChatWindow';
 import { ToastContainer, toast } from 'react-toastify';
+import { parseErrorMessage, sanitizeFilename } from '../utils/errorHandling';
 import 'react-toastify/dist/ReactToastify.css';
 
 const GlbViewer = dynamic(() => import('../components/glbViewer'), { ssr: false });
@@ -23,8 +25,11 @@ const RefinePage = () => {
     const [enablePBR, setEnablePBR] = useState(false);
     const [loading, setLoading] = useState(false);
     const [refining, setRefining] = useState(false);
+    const [regenerating, setRegenerating] = useState(false);
     const [estimating, setEstimating] = useState(false);
     const [costEstimate, setCostEstimate] = useState(null);
+    const [refinementPrompt, setRefinementPrompt] = useState('');
+    const [showChat, setShowChat] = useState(false);
     const [advancedOptions, setAdvancedOptions] = useState({
         ai_model: 'meshy-5'
     });
@@ -39,7 +44,13 @@ const RefinePage = () => {
 
     const handleRefine = async () => {
         if (!fileData?.meshyTaskId) {
-            toast.error('No preview task ID found');
+            toast.error('No preview task ID found. This model may not support texture refinement.');
+            return;
+        }
+
+        // Validate that we have something to refine
+        if (!texturePrompt.trim() && !enablePBR) {
+            toast.error('Please provide a texture description or enable PBR materials');
             return;
         }
 
@@ -103,7 +114,9 @@ const RefinePage = () => {
             }
         } catch (error) {
             console.error('Error refining model:', error);
-            toast.error(error.response?.data?.detail || error.message || 'Failed to refine model');
+            console.error('Error details:', error.response?.data);
+            
+            toast.error(parseErrorMessage(error, 'Failed to refine model'));
             setRefining(false);
             setLoading(false);
         }
@@ -145,10 +158,89 @@ const RefinePage = () => {
         router.push('/preview');
     };
 
+    const handleRegenerateModel = async () => {
+        const trimmedPrompt = refinementPrompt?.trim() || '';
+        
+        if (!trimmedPrompt || trimmedPrompt.length < 3) {
+            toast.error('Please enter a refinement prompt (at least 3 characters)');
+            return;
+        }
+
+        if (trimmedPrompt.length > 600) {
+            toast.error('Prompt must be less than 600 characters');
+            return;
+        }
+
+        setRegenerating(true);
+        setLoading(true);
+
+        try {
+            const meshyService = new MeshyService();
+            
+            // Get augmented prompt with conversation context
+            const finalPrompt = getAugmentedPrompt(trimmedPrompt);
+            
+            // Create new preview task with refinement prompt
+            const requestData = {
+                prompt: finalPrompt,
+                art_style: fileData.meshyData?.art_style || 'realistic',
+                ai_model: 'meshy-5',
+                topology: 'triangle',
+                target_polycount: 30000,
+                should_remesh: true
+            };
+            
+            const result = await meshyService.createPreview(requestData);
+
+            if (result.success && result.task_id) {
+                // Calculate and add tokens
+                addTokens(5);
+                
+                toast.info('Regenerating model with your refinements... This will take 1-2 minutes.');
+                
+                // Poll for completion
+                const completedTask = await meshyService.pollTask(result.task_id);
+                
+                if (completedTask.status === 'SUCCEEDED') {
+                    toast.success('Model regenerated successfully!');
+                    
+                    // Update file data with new model
+                    const modelUrl = completedTask.model_urls?.glb || completedTask.model_urls?.obj || '';
+                    setFileData({
+                        fileUrl: getProxiedUrl(modelUrl),
+                        meshyTaskId: result.task_id,
+                        meshyData: completedTask,
+                        filename: `${sanitizeFilename(refinementPrompt)}.glb`,
+                        isMeshyModel: true
+                    });
+                    
+                    // Clear cost estimate as model changed
+                    setCostEstimate(null);
+                    setRefinementPrompt('');
+                    setRegenerating(false);
+                    setLoading(false);
+                } else {
+                    toast.error('Model regeneration failed');
+                    setRegenerating(false);
+                    setLoading(false);
+                }
+            }
+        } catch (error) {
+            console.error('Error regenerating model:', error);
+            console.error('Error details:', error.response?.data);
+            
+            toast.error(parseErrorMessage(error, 'Failed to regenerate model'));
+            setRegenerating(false);
+            setLoading(false);
+        }
+    };
+
     return (
         <div className="min-h-screen bg-gradient-to-bl from-blue-500 to-gray-100 transition-opacity duration-500">
             <ToastContainer position={toast.POSITION.TOP_RIGHT} />
             <TokenDisplay />
+            
+            {showChat && <ChatWindow onClose={() => setShowChat(false)} />}
             
             <div className="container mx-auto px-4 py-8">
                 <h1 className="text-4xl font-bold text-white text-center mb-8 animate-fadeIn">
@@ -210,7 +302,55 @@ const RefinePage = () => {
                         <h2 className="text-2xl font-bold mb-6 text-gray-800">Refinement Options</h2>
                         
                         <div className="space-y-6">
+                            {/* Regenerate Model Section */}
+                            <div className="bg-gradient-to-r from-purple-50 to-blue-50 p-6 rounded-lg border-2 border-purple-200">
+                                <h3 className="text-xl font-bold mb-3 text-gray-800">🔄 Regenerate Model with Refinements</h3>
+                                <p className="text-sm text-gray-600 mb-4">
+                                    Describe how you'd like to improve or modify the model. The conversation context will be used to generate a new model.
+                                </p>
+                                <textarea
+                                    value={refinementPrompt}
+                                    onChange={(e) => setRefinementPrompt(e.target.value)}
+                                    placeholder="e.g., make it bigger, add more details, change the shape to be rounder..."
+                                    className="w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 mb-3"
+                                    rows="3"
+                                    maxLength="600"
+                                    disabled={regenerating}
+                                />
+                                <div className="flex justify-between items-center mb-3">
+                                    <p className="text-sm text-gray-500">
+                                        {refinementPrompt.length}/600 characters
+                                    </p>
+                                    <button
+                                        onClick={handleRegenerateModel}
+                                        disabled={regenerating || !refinementPrompt.trim()}
+                                        className="px-6 py-3 bg-purple-500 hover:bg-purple-600 text-white rounded-lg transition duration-300 disabled:bg-gray-300 font-bold shadow-md"
+                                    >
+                                        {regenerating ? 'Regenerating...' : '🔄 Regenerate Model'}
+                                    </button>
+                                </div>
+                                <button
+                                    onClick={() => setShowChat(true)}
+                                    className="w-full px-4 py-3 bg-purple-100 hover:bg-purple-200 text-purple-700 rounded-lg font-medium transition duration-200 flex items-center justify-center space-x-2"
+                                    disabled={loading}
+                                >
+                                    <span>💬</span>
+                                    <span>Chat to Refine Your Ideas</span>
+                                </button>
+                                {regenerating && (
+                                    <div className="mt-3 bg-purple-100 border border-purple-400 text-purple-700 px-4 py-3 rounded-lg">
+                                        <p className="font-bold">Regenerating model...</p>
+                                        <p className="text-sm">This will take 1-2 minutes. Cost: 5 tokens</p>
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Divider */}
+                            <div className="border-t-2 border-gray-200 my-6"></div>
+
+                            {/* Texture Refinement Section */}
                             <div>
+                                <h3 className="text-xl font-bold mb-3 text-gray-800">🎨 Refine Texture</h3>
                                 <label className="block text-gray-700 font-bold mb-2">
                                     Texture Description (Optional)
                                 </label>
