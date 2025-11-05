@@ -1,5 +1,5 @@
 'use client'
-import React, { createContext, useState, useContext } from 'react';
+import React, { createContext, useState, useContext, useCallback } from 'react';
 
 const ConversationContext = createContext();
 
@@ -15,22 +15,24 @@ export const ConversationProvider = ({ children }) => {
     const [messages, setMessages] = useState([]);
     const [artisticMode, setArtisticMode] = useState(false);
     
-    const addMessage = (role, content) => {
+    const addMessage = useCallback((role, content) => {
         setMessages(prev => [...prev, { role, content, timestamp: Date.now() }]);
-    };
+    }, []);
     
-    const clearConversation = () => {
+    const clearConversation = useCallback(() => {
         setMessages([]);
-    };
+    }, []);
     
-    const getConversationText = () => {
+    const getConversationText = useCallback(() => {
         return messages
             .map(msg => `${msg.role === 'user' ? 'User' : 'ChatGPT'}: ${msg.content}`)
             .join('\n\n');
-    };
+    }, [messages]);
     
-    const getAugmentedPrompt = (basePrompt) => {
-        const conversationText = getConversationText();
+    const getAugmentedPrompt = useCallback((basePrompt) => {
+        const conversationText = messages
+            .map(msg => `${msg.role === 'user' ? 'User' : 'ChatGPT'}: ${msg.content}`)
+            .join('\n\n');
         
         if (!conversationText) {
             return basePrompt;
@@ -41,7 +43,7 @@ export const ConversationProvider = ({ children }) => {
         } else {
             return `${basePrompt}\n\nPlease use the conversation below to form a better understanding of the model that you should be supplying, and based on that conversation amend the model:\n\n${conversationText}`;
         }
-    };
+    }, [messages, artisticMode]);
     
     return (
         <ConversationContext.Provider value={{ 
