@@ -11,6 +11,7 @@ import TokenDisplay from '../components/TokenDisplay';
 import AdvancedRefineOptions from '../components/AdvancedRefineOptions';
 import ChatWindow from '../components/ChatWindow';
 import { ToastContainer, toast } from 'react-toastify';
+import { parseErrorMessage, sanitizeFilename } from '../utils/errorHandling';
 import 'react-toastify/dist/ReactToastify.css';
 
 const GlbViewer = dynamic(() => import('../components/glbViewer'), { ssr: false });
@@ -115,18 +116,7 @@ const RefinePage = () => {
             console.error('Error refining model:', error);
             console.error('Error details:', error.response?.data);
             
-            let errorMessage = 'Failed to refine model';
-            if (error.response?.data?.detail) {
-                if (typeof error.response.data.detail === 'string') {
-                    errorMessage = error.response.data.detail;
-                } else if (Array.isArray(error.response.data.detail)) {
-                    errorMessage = error.response.data.detail.map(e => e.msg).join(', ');
-                }
-            } else if (error.message) {
-                errorMessage = error.message;
-            }
-            
-            toast.error(errorMessage);
+            toast.error(parseErrorMessage(error, 'Failed to refine model'));
             setRefining(false);
             setLoading(false);
         }
@@ -169,12 +159,12 @@ const RefinePage = () => {
     };
 
     const handleRegenerateModel = async () => {
-        if (!refinementPrompt || refinementPrompt.trim().length < 3) {
+        if (!refinementPrompt?.trim() || refinementPrompt.trim().length < 3) {
             toast.error('Please enter a refinement prompt (at least 3 characters)');
             return;
         }
 
-        if (refinementPrompt.length > 600) {
+        if (refinementPrompt.trim().length > 600) {
             toast.error('Prompt must be less than 600 characters');
             return;
         }
@@ -218,7 +208,7 @@ const RefinePage = () => {
                         fileUrl: getProxiedUrl(modelUrl),
                         meshyTaskId: result.task_id,
                         meshyData: completedTask,
-                        filename: `${refinementPrompt.substring(0, 30).replace(/\s+/g, '_')}.glb`,
+                        filename: `${sanitizeFilename(refinementPrompt)}.glb`,
                         isMeshyModel: true
                     });
                     
@@ -237,18 +227,7 @@ const RefinePage = () => {
             console.error('Error regenerating model:', error);
             console.error('Error details:', error.response?.data);
             
-            let errorMessage = 'Failed to regenerate model';
-            if (error.response?.data?.detail) {
-                if (typeof error.response.data.detail === 'string') {
-                    errorMessage = error.response.data.detail;
-                } else if (Array.isArray(error.response.data.detail)) {
-                    errorMessage = error.response.data.detail.map(e => e.msg).join(', ');
-                }
-            } else if (error.message) {
-                errorMessage = error.message;
-            }
-            
-            toast.error(errorMessage);
+            toast.error(parseErrorMessage(error, 'Failed to regenerate model'));
             setRegenerating(false);
             setLoading(false);
         }

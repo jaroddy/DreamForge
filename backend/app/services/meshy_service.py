@@ -42,14 +42,11 @@ class MeshyService:
         if seed is not None:
             payload["seed"] = seed
         
-        if symmetry_mode is not None:
+        if symmetry_mode:
             payload["symmetry_mode"] = symmetry_mode
             
-        if is_a_t_pose is not None:
-            payload["is_a_t_pose"] = is_a_t_pose
-            
-        if moderation is not None:
-            payload["moderation"] = moderation
+        payload["is_a_t_pose"] = is_a_t_pose
+        payload["moderation"] = moderation
         
         # Add any additional parameters
         payload.update(kwargs)
@@ -90,8 +87,7 @@ class MeshyService:
         if texture_image_url:
             payload["texture_image_url"] = texture_image_url
             
-        if moderation is not None:
-            payload["moderation"] = moderation
+        payload["moderation"] = moderation
         
         # Add any additional parameters
         payload.update(kwargs)

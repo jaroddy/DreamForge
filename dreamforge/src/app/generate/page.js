@@ -9,6 +9,7 @@ import TokenDisplay from '../components/TokenDisplay';
 import AdvancedPreviewOptions from '../components/AdvancedPreviewOptions';
 import ChatWindow from '../components/ChatWindow';
 import { ToastContainer, toast } from 'react-toastify';
+import { parseErrorMessage, sanitizeFilename } from '../utils/errorHandling';
 import 'react-toastify/dist/ReactToastify.css';
 
 const FILENAME_MAX_LENGTH = 30;
@@ -97,7 +98,7 @@ const GeneratePage = () => {
                         fileUrl: getProxiedUrl(modelUrl),
                         meshyTaskId: result.task_id,
                         meshyData: completedTask,
-                        filename: `${prompt.substring(0, FILENAME_MAX_LENGTH).replace(/\s+/g, '_')}.glb`,
+                        filename: `${sanitizeFilename(prompt, FILENAME_MAX_LENGTH)}.glb`,
                         isMeshyModel: true
                     });
                     
@@ -116,18 +117,7 @@ const GeneratePage = () => {
             console.error('Error details:', error.response?.data);
             setShowChat(false);
             
-            let errorMessage = 'Failed to generate model';
-            if (error.response?.data?.detail) {
-                if (typeof error.response.data.detail === 'string') {
-                    errorMessage = error.response.data.detail;
-                } else if (Array.isArray(error.response.data.detail)) {
-                    errorMessage = error.response.data.detail.map(e => e.msg).join(', ');
-                }
-            } else if (error.message) {
-                errorMessage = error.message;
-            }
-            
-            toast.error(errorMessage);
+            toast.error(parseErrorMessage(error, 'Failed to generate model'));
             setLoading(false);
             setProgress('');
         }

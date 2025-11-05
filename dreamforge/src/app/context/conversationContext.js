@@ -30,6 +30,7 @@ export const ConversationProvider = ({ children }) => {
     }, [messages]);
     
     const getAugmentedPrompt = useCallback((basePrompt) => {
+        // Compute conversation text inline to avoid dependency on getConversationText
         const conversationText = messages
             .map(msg => `${msg.role === 'user' ? 'User' : 'ChatGPT'}: ${msg.content}`)
             .join('\n\n');
