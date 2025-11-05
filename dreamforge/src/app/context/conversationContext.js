@@ -31,12 +31,17 @@ export const ConversationProvider = ({ children }) => {
     
     const getAugmentedPrompt = useCallback((basePrompt) => {
         // Compute conversation text inline to avoid dependency on getConversationText
-        const conversationText = messages
+        let conversationText = messages
             .map(msg => `${msg.role === 'user' ? 'User' : 'ChatGPT'}: ${msg.content}`)
             .join('\n\n');
         
         if (!conversationText) {
             return basePrompt;
+        }
+        
+        // Trim conversation text to 200 characters to stay within 600 character limit
+        if (conversationText.length > 200) {
+            conversationText = conversationText.substring(0, 200) + '...';
         }
         
         if (artisticMode) {

@@ -24,7 +24,8 @@ const ChatWindow = ({ onClose }) => {
             const greeting = "Hi! I'd love to learn more about the 3D model you're creating. What inspired you to make this model? Or, if you'd like, we can just chat about how you're doing today!";
             addMessage('assistant', greeting);
         }
-    }, [hasGreeted, messages.length, addMessage]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [hasGreeted, messages.length]);
 
     const sendMessage = async () => {
         if (!input.trim() || loading) return;
