@@ -28,9 +28,11 @@ export const ConversationProvider = ({ children }) => {
     }, []);
     
     const clearConversation = useCallback(() => {
-        console.log('[ConversationContext] Clearing conversation, previous message count:', messages.length);
-        setMessages([]);
-    }, [messages.length]);
+        setMessages(prev => {
+            console.log('[ConversationContext] Clearing conversation, previous message count:', prev.length);
+            return [];
+        });
+    }, []);
     
     const getConversationText = useCallback(() => {
         return messages
