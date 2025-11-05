@@ -14,84 +14,107 @@ const ChatWindow = ({ onClose }) => {
     };
 
     useEffect(() => {
+        console.log('[ChatWindow] Component mounted, current messages count:', messages.length);
+        return () => {
+            console.log('[ChatWindow] Component unmounting');
+        };
+    }, []);
+
+    useEffect(() => {
         scrollToBottom();
     }, [messages]);
 
     useEffect(() => {
-        // Send initial greeting if no messages yet
+        // Send initial greeting if no messages yet and haven't greeted yet
         if (!hasGreeted && messages.length === 0) {
+            console.log('[ChatWindow] Adding initial greeting message');
             setHasGreeted(true);
             const greeting = "Hi! I'd love to learn more about the 3D model you're creating. What inspired you to make this model? Or, if you'd like, we can just chat about how you're doing today!";
             addMessage('assistant', greeting);
         }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [hasGreeted, messages.length]);
+    }, [hasGreeted]);
 
     const sendMessage = async () => {
         if (!input.trim() || loading) return;
 
         const userMessage = input.trim();
+        console.log('[ChatWindow] Sending user message:', userMessage.substring(0, 50) + (userMessage.length > 50 ? '...' : ''));
+        
         setInput('');
         addMessage('user', userMessage);
         setLoading(true);
 
         try {
-            const apiKey = process.env.NEXT_PUBLIC_OPENAI_API_KEY;
-            
-            if (!apiKey || apiKey === 'your_openai_api_key_here') {
-                addMessage('assistant', "I'm sorry, but the OpenAI API key hasn't been configured yet. Please add your API key to the .env.local file.");
-                setLoading(false);
-                return;
-            }
+            // Prepare message history for API call
+            const messageHistory = [
+                ...messages.map(msg => ({
+                    role: msg.role,
+                    content: msg.content
+                })),
+                {
+                    role: 'user',
+                    content: userMessage
+                }
+            ];
 
-            // NOTE: For production, this should be moved to a backend API route
-            // to protect the API key. Current implementation is for demonstration
-            // and assumes user will add their own key for local development.
-            const response = await fetch('https://api.openai.com/v1/chat/completions', {
+            console.log('[ChatWindow] Calling backend API with', messageHistory.length, 'messages');
+            const startTime = Date.now();
+
+            const response = await fetch('/api/chat', {
                 method: 'POST',
                 headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${apiKey}`
+                    'Content-Type': 'application/json'
                 },
                 body: JSON.stringify({
-                    model: 'gpt-3.5-turbo',
-                    messages: [
-                        {
-                            role: 'system',
-                            content: 'You are a friendly and creative assistant helping users create 3D models. Ask thoughtful questions about their model ideas or engage in casual conversation if they prefer. Be encouraging and helpful. Keep responses concise (2-3 sentences).'
-                        },
-                        ...messages.map(msg => ({
-                            role: msg.role,
-                            content: msg.content
-                        })),
-                        {
-                            role: 'user',
-                            content: userMessage
-                        }
-                    ],
-                    temperature: 0.8,
-                    max_tokens: 150
+                    messages: messageHistory
                 })
             });
 
+            const elapsed = Date.now() - startTime;
+            console.log('[ChatWindow] API response received in', elapsed, 'ms, status:', response.status);
+
             if (!response.ok) {
-                throw new Error('Failed to get response from ChatGPT');
+                const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
+                console.error('[ChatWindow] API error response:', errorData);
+                
+                if (response.status === 500 && errorData.error?.includes('API key')) {
+                    throw new Error("The OpenAI API key hasn't been configured. Please contact support.");
+                }
+                
+                throw new Error(errorData.error || `Request failed with status ${response.status}`);
             }
 
             const data = await response.json();
+            console.log('[ChatWindow] API response data received:', {
+                messageLength: data.message?.length || 0,
+                usage: data.usage
+            });
             
             // Validate response structure
-            if (!data.choices || data.choices.length === 0 || !data.choices[0].message) {
-                throw new Error('Invalid response from ChatGPT');
+            if (!data.message) {
+                console.error('[ChatWindow] Invalid response structure:', data);
+                throw new Error('Invalid response from server');
             }
             
-            const assistantMessage = data.choices[0].message.content;
+            const assistantMessage = data.message;
+            console.log('[ChatWindow] Adding assistant response to chat');
             addMessage('assistant', assistantMessage);
+            
         } catch (error) {
-            console.error('Error sending message:', error);
-            addMessage('assistant', "I'm sorry, I encountered an error. Please try again.");
+            console.error('[ChatWindow] Error in sendMessage:', {
+                message: error.message,
+                stack: error.stack
+            });
+            
+            const errorMessage = error.message.includes('API key') 
+                ? error.message
+                : "I'm sorry, I encountered an error. Please try again or contact support if the problem persists.";
+            
+            addMessage('assistant', errorMessage);
         } finally {
             setLoading(false);
+            console.log('[ChatWindow] Message sending complete');
         }
     };
 

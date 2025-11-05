@@ -19,11 +19,19 @@ export const ConversationProvider = ({ children }) => {
     const [artisticMode, setArtisticMode] = useState(false);
     
     const addMessage = useCallback((role, content) => {
+        console.log('[ConversationContext] Adding message:', { 
+            role, 
+            contentLength: content.length,
+            preview: content.substring(0, 50) + (content.length > 50 ? '...' : '')
+        });
         setMessages(prev => [...prev, { role, content, timestamp: Date.now() }]);
     }, []);
     
     const clearConversation = useCallback(() => {
-        setMessages([]);
+        setMessages(prev => {
+            console.log('[ConversationContext] Clearing conversation, previous message count:', prev.length);
+            return [];
+        });
     }, []);
     
     const getConversationText = useCallback(() => {
