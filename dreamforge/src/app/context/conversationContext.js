@@ -44,8 +44,8 @@ export const ConversationProvider = ({ children }) => {
             // Truncate at word boundary for better readability
             const truncated = conversationText.substring(0, MAX_CONVERSATION_LENGTH);
             const lastSpaceIndex = truncated.lastIndexOf(' ');
-            // Use word boundary if found after start, otherwise use full truncated length
-            conversationText = (lastSpaceIndex > 0 ? truncated.substring(0, lastSpaceIndex) : truncated) + '...';
+            // Use word boundary if found with meaningful content (>10 chars), otherwise use full truncated length
+            conversationText = (lastSpaceIndex > 10 ? truncated.substring(0, lastSpaceIndex) : truncated) + '...';
         }
         
         if (artisticMode) {
