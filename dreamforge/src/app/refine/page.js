@@ -159,12 +159,14 @@ const RefinePage = () => {
     };
 
     const handleRegenerateModel = async () => {
-        if (!refinementPrompt?.trim() || refinementPrompt.trim().length < 3) {
+        const trimmedPrompt = refinementPrompt?.trim() || '';
+        
+        if (!trimmedPrompt || trimmedPrompt.length < 3) {
             toast.error('Please enter a refinement prompt (at least 3 characters)');
             return;
         }
 
-        if (refinementPrompt.trim().length > 600) {
+        if (trimmedPrompt.length > 600) {
             toast.error('Prompt must be less than 600 characters');
             return;
         }
@@ -176,7 +178,7 @@ const RefinePage = () => {
             const meshyService = new MeshyService();
             
             // Get augmented prompt with conversation context
-            const finalPrompt = getAugmentedPrompt(refinementPrompt.trim());
+            const finalPrompt = getAugmentedPrompt(trimmedPrompt);
             
             // Create new preview task with refinement prompt
             const requestData = {

@@ -42,7 +42,7 @@ class MeshyService:
         if seed is not None:
             payload["seed"] = seed
         
-        if symmetry_mode:
+        if symmetry_mode is not None:
             payload["symmetry_mode"] = symmetry_mode
             
         payload["is_a_t_pose"] = is_a_t_pose

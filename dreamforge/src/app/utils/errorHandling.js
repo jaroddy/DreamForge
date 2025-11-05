@@ -37,6 +37,7 @@ export const sanitizeFilename = (input, maxLength = 30) => {
     let filename = input.trim().substring(0, maxLength);
     
     // Replace invalid filename characters with underscores
+    // This includes: < > : " / \ | ? * and ASCII control characters (0x00-0x1F)
     filename = filename.replace(/[<>:"/\\|?*\x00-\x1f]/g, '_');
     
     // Replace multiple spaces with single underscore
