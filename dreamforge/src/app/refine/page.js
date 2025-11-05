@@ -43,7 +43,13 @@ const RefinePage = () => {
 
     const handleRefine = async () => {
         if (!fileData?.meshyTaskId) {
-            toast.error('No preview task ID found');
+            toast.error('No preview task ID found. This model may not support texture refinement.');
+            return;
+        }
+
+        // Validate that we have something to refine
+        if (!texturePrompt.trim() && !enablePBR) {
+            toast.error('Please provide a texture description or enable PBR materials');
             return;
         }
 
@@ -107,7 +113,20 @@ const RefinePage = () => {
             }
         } catch (error) {
             console.error('Error refining model:', error);
-            toast.error(error.response?.data?.detail || error.message || 'Failed to refine model');
+            console.error('Error details:', error.response?.data);
+            
+            let errorMessage = 'Failed to refine model';
+            if (error.response?.data?.detail) {
+                if (typeof error.response.data.detail === 'string') {
+                    errorMessage = error.response.data.detail;
+                } else if (Array.isArray(error.response.data.detail)) {
+                    errorMessage = error.response.data.detail.map(e => e.msg).join(', ');
+                }
+            } else if (error.message) {
+                errorMessage = error.message;
+            }
+            
+            toast.error(errorMessage);
             setRefining(false);
             setLoading(false);
         }
@@ -216,7 +235,20 @@ const RefinePage = () => {
             }
         } catch (error) {
             console.error('Error regenerating model:', error);
-            toast.error(error.response?.data?.detail || error.message || 'Failed to regenerate model');
+            console.error('Error details:', error.response?.data);
+            
+            let errorMessage = 'Failed to regenerate model';
+            if (error.response?.data?.detail) {
+                if (typeof error.response.data.detail === 'string') {
+                    errorMessage = error.response.data.detail;
+                } else if (Array.isArray(error.response.data.detail)) {
+                    errorMessage = error.response.data.detail.map(e => e.msg).join(', ');
+                }
+            } else if (error.message) {
+                errorMessage = error.message;
+            }
+            
+            toast.error(errorMessage);
             setRegenerating(false);
             setLoading(false);
         }

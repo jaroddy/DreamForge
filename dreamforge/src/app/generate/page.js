@@ -113,8 +113,21 @@ const GeneratePage = () => {
             }
         } catch (error) {
             console.error('Error generating model:', error);
+            console.error('Error details:', error.response?.data);
             setShowChat(false);
-            toast.error(error.response?.data?.detail || error.message || 'Failed to generate model');
+            
+            let errorMessage = 'Failed to generate model';
+            if (error.response?.data?.detail) {
+                if (typeof error.response.data.detail === 'string') {
+                    errorMessage = error.response.data.detail;
+                } else if (Array.isArray(error.response.data.detail)) {
+                    errorMessage = error.response.data.detail.map(e => e.msg).join(', ');
+                }
+            } else if (error.message) {
+                errorMessage = error.message;
+            }
+            
+            toast.error(errorMessage);
             setLoading(false);
             setProgress('');
         }
