@@ -33,10 +33,7 @@ export const ConversationProvider = ({ children }) => {
     }, [messages]);
     
     const getAugmentedPrompt = useCallback((basePrompt) => {
-        // Compute conversation text inline to avoid dependency on getConversationText
-        let conversationText = messages
-            .map(msg => `${msg.role === 'user' ? 'User' : 'ChatGPT'}: ${msg.content}`)
-            .join('\n\n');
+        let conversationText = getConversationText();
         
         if (!conversationText) {
             return basePrompt;
@@ -47,6 +44,7 @@ export const ConversationProvider = ({ children }) => {
             // Truncate at word boundary for better readability
             const truncated = conversationText.substring(0, MAX_CONVERSATION_LENGTH);
             const lastSpaceIndex = truncated.lastIndexOf(' ');
+            // Use word boundary if found after start, otherwise use full truncated length
             conversationText = (lastSpaceIndex > 0 ? truncated.substring(0, lastSpaceIndex) : truncated) + '...';
         }
         
@@ -55,7 +53,7 @@ export const ConversationProvider = ({ children }) => {
         } else {
             return `${basePrompt}\n\nPlease use the conversation below to form a better understanding of the model that you should be supplying, and based on that conversation amend the model:\n\n${conversationText}`;
         }
-    }, [messages, artisticMode]);
+    }, [getConversationText, artisticMode]);
     
     return (
         <ConversationContext.Provider value={{ 
