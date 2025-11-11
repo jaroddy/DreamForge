@@ -41,37 +41,19 @@ export const ConversationProvider = ({ children }) => {
     }, [messages]);
     
     const getAugmentedPrompt = useCallback((basePrompt) => {
-        // Find the last assistant (ChatGPT) message in the conversation
-        // We only send the last ChatGPT message to Meshy, not the entire conversation
-        const lastAssistantMessage = messages
-            .slice()
-            .reverse()
-            .find(msg => msg.role === 'assistant');
+        // According to the problem statement, we should NOT amend prompts sent to Meshy
+        // The prompt should be limited to 600 characters total without any augmentation
+        console.log('[ConversationContext] Using base prompt only (no augmentation) for Meshy');
         
-        if (!lastAssistantMessage) {
-            console.log('[ConversationContext] No assistant message found, using base prompt only');
-            return basePrompt;
+        // Ensure the prompt is within 600 character limit
+        let finalPrompt = basePrompt;
+        if (finalPrompt.length > 600) {
+            console.log('[ConversationContext] Prompt exceeds 600 characters, truncating from', finalPrompt.length, 'to 600');
+            finalPrompt = finalPrompt.substring(0, 600).trim();
         }
         
-        // Extract only the last assistant message content
-        let conversationText = lastAssistantMessage.content;
-        console.log('[ConversationContext] Using last assistant message for Meshy:', conversationText.substring(0, 50) + (conversationText.length > 50 ? '...' : ''));
-        
-        // Trim conversation text to stay within 600 character limit
-        if (conversationText.length > MAX_CONVERSATION_LENGTH) {
-            // Truncate at word boundary for better readability
-            const truncated = conversationText.substring(0, MAX_CONVERSATION_LENGTH);
-            const lastSpaceIndex = truncated.lastIndexOf(' ');
-            // Use word boundary if found with meaningful content (>10 chars), otherwise use full truncated length
-            conversationText = (lastSpaceIndex > 10 ? truncated.substring(0, lastSpaceIndex) : truncated) + '...';
-        }
-        
-        if (artisticMode) {
-            return `${basePrompt}\n\nPlease use the following ChatGPT message to form an artistic understanding of the user and how they are feeling, and express that as a beautiful and professionally created 3D model that represents them:\n\n${conversationText}`;
-        } else {
-            return `${basePrompt}\n\nPlease use the following ChatGPT message to form a better understanding of the model that you should be supplying, and based on that message amend the model:\n\n${conversationText}`;
-        }
-    }, [messages, artisticMode]);
+        return finalPrompt;
+    }, []);
     
     return (
         <ConversationContext.Provider value={{ 
