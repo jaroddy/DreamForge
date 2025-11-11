@@ -308,6 +308,32 @@ const RefinePage = () => {
         }
     };
 
+    const handlePurchaseTokens = async () => {
+        try {
+            const apiService = new ApiService();
+            
+            // Create a checkout session for 200 credits at $10
+            const amount = 1000; // $10 in cents
+            const description = '200 DreamForge Credits';
+            const metadata = {
+                credits: 200,
+                type: 'token_purchase'
+            };
+            
+            const result = await apiService.createCheckoutSession(amount, description, 'usd', metadata);
+            
+            if (result.success && result.url) {
+                // Redirect to Stripe checkout
+                window.location.href = result.url;
+            } else {
+                toast.error('Failed to create checkout session');
+            }
+        } catch (error) {
+            console.error('Error creating checkout session:', error);
+            toast.error('Failed to initiate token purchase');
+        }
+    };
+
     return (
         <div className="min-h-screen bg-gradient-to-bl from-blue-500 to-gray-100 transition-opacity duration-500">
             <ToastContainer position={toast.POSITION.TOP_RIGHT} />
@@ -319,197 +345,217 @@ const RefinePage = () => {
                 </h1>
                 
                 <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-3 gap-6">
-                    {/* Main content - 2/3 width on large screens */}
-                    <div className="lg:col-span-2 space-y-6">
-                    {/* Dominant Model Preview */}
-                    <div className="bg-white rounded-2xl shadow-2xl p-8 animate-slideIn">
-                        <div className="flex justify-between items-center mb-6">
-                            <h2 className="text-3xl font-bold text-gray-800">3D Model Preview</h2>
-                            {costEstimate && (
-                                <div className="bg-green-100 px-6 py-3 rounded-lg">
-                                    <p className="text-sm text-green-700 font-medium">Estimated Cost</p>
-                                    <p className="text-2xl font-bold text-green-600">
-                                        ${costEstimate.totalPrice || 'N/A'}
-                                    </p>
+                    {/* Refinement Options - 1/3 width on large screens, left side */}
+                    <div className="lg:col-span-1">
+                        <div className="sticky top-8">
+                            <div className="bg-white rounded-2xl shadow-lg p-8 animate-slideUp">
+                                <h2 className="text-2xl font-bold mb-6 text-gray-800">Refinement Options</h2>
+                        
+                                <div className="space-y-6">
+                                    {/* Purchase Tokens Section */}
+                                    <div className="bg-gradient-to-r from-green-50 to-blue-50 p-4 rounded-lg border-2 border-green-200">
+                                        <h3 className="text-lg font-bold mb-2 text-gray-800">💳 Purchase Credits</h3>
+                                        <p className="text-xs text-gray-600 mb-3">
+                                            Get 200 credits for $10 to continue generating and refining models.
+                                        </p>
+                                        <button
+                                            onClick={handlePurchaseTokens}
+                                            className="w-full px-4 py-2 bg-green-500 hover:bg-green-600 text-white rounded-lg transition duration-300 font-bold shadow-md text-sm"
+                                        >
+                                            💳 Purchase 200 Credits - $10
+                                        </button>
+                                    </div>
+                                    
+                                    {/* Divider */}
+                                    <div className="border-t-2 border-gray-200 my-4"></div>
+                                    
+                                    {/* Regenerate Model Section */}
+                                    <div className="bg-gradient-to-r from-purple-50 to-blue-50 p-4 rounded-lg border-2 border-purple-200">
+                                        <h3 className="text-lg font-bold mb-2 text-gray-800">🔄 Regenerate Model</h3>
+                                        <p className="text-xs text-gray-600 mb-3">
+                                            Describe improvements or modifications.
+                                        </p>
+                                        <textarea
+                                            value={refinementPrompt}
+                                            onChange={(e) => setRefinementPrompt(e.target.value)}
+                                            placeholder="e.g., make it bigger, add more details..."
+                                            className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 mb-2 text-sm"
+                                            rows="3"
+                                            maxLength="600"
+                                            disabled={regenerating}
+                                        />
+                                        <div className="flex justify-between items-center mb-2">
+                                            <p className="text-xs text-gray-500">
+                                                {refinementPrompt.length}/600
+                                            </p>
+                                        </div>
+                                        <button
+                                            onClick={handleRegenerateModel}
+                                            disabled={regenerating || !refinementPrompt.trim()}
+                                            className="w-full px-4 py-2 bg-purple-500 hover:bg-purple-600 text-white rounded-lg transition duration-300 disabled:bg-gray-300 font-bold shadow-md text-sm"
+                                        >
+                                            {regenerating ? 'Regenerating...' : '🔄 Regenerate'}
+                                        </button>
+                                        {regenerating && (
+                                            <div className="mt-2 bg-purple-100 border border-purple-400 text-purple-700 px-3 py-2 rounded-lg">
+                                                <p className="font-bold text-xs">Regenerating...</p>
+                                                <p className="text-xs">1-2 mins. Cost: 5 tokens</p>
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    {/* Divider */}
+                                    <div className="border-t-2 border-gray-200 my-4"></div>
+
+                                    {/* Texture Refinement Section */}
+                                    <div>
+                                        <h3 className="text-lg font-bold mb-2 text-gray-800">🎨 Refine Texture</h3>
+                                        <label className="block text-gray-700 font-bold mb-2 text-sm">
+                                            Texture Description (Optional)
+                                        </label>
+                                        <textarea
+                                            value={texturePrompt}
+                                            onChange={(e) => setTexturePrompt(e.target.value)}
+                                            placeholder="e.g., metallic silver finish..."
+                                            className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                                            rows="3"
+                                            maxLength="600"
+                                            disabled={refining}
+                                        />
+                                        <p className="text-xs text-gray-500 mt-1">
+                                            {texturePrompt.length}/600
+                                        </p>
+                                    </div>
+                                    
+                                    <div>
+                                        <label className="flex items-center space-x-2">
+                                            <input
+                                                type="checkbox"
+                                                checked={enablePBR}
+                                                onChange={(e) => setEnablePBR(e.target.checked)}
+                                                className="w-4 h-4"
+                                                disabled={refining}
+                                            />
+                                            <span className="text-gray-700 font-medium text-sm">
+                                                Enable PBR Materials
+                                            </span>
+                                        </label>
+                                    </div>
+                                    
+                                    <div className="mb-4">
+                                        <AdvancedRefineOptions
+                                            options={advancedOptions}
+                                            onChange={setAdvancedOptions}
+                                            disabled={refining}
+                                        />
+                                    </div>
+                                    
+                                    {refining && (
+                                        <div className="bg-blue-100 border border-blue-400 text-blue-700 px-3 py-2 rounded-lg">
+                                            <p className="font-bold text-xs">Refining...</p>
+                                            <p className="text-xs">1-2 mins. Cost: 15 tokens</p>
+                                        </div>
+                                    )}
+                                    
+                                    <div className="grid grid-cols-1 gap-3">
+                                        <button
+                                            onClick={handleRefine}
+                                            disabled={refining || !fileData?.meshyTaskId}
+                                            className="px-4 py-3 bg-purple-500 hover:bg-purple-600 text-white rounded-lg transition duration-300 disabled:bg-gray-300 font-bold shadow-md text-sm"
+                                        >
+                                            {refining ? 'Refining...' : '✨ Refine Texture'}
+                                        </button>
+                                        
+                                        <button
+                                            onClick={handleGetEstimate}
+                                            disabled={estimating || !fileData?.fileUrl}
+                                            className="px-4 py-3 bg-green-500 hover:bg-green-600 text-white rounded-lg transition duration-300 disabled:bg-gray-300 font-bold shadow-md text-sm"
+                                        >
+                                            {estimating ? 'Estimating...' : '💰 Get Estimate'}
+                                        </button>
+                                        
+                                        <button
+                                            onClick={handleProceedToPayment}
+                                            disabled={!costEstimate}
+                                            className="px-4 py-3 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition duration-300 disabled:bg-gray-300 font-bold shadow-md text-sm"
+                                        >
+                                            🛒 Place Order
+                                        </button>
+                                    </div>
+                                    
+                                    <div className="flex justify-between pt-4 border-t gap-2">
+                                        <button
+                                            onClick={() => router.push('/generate')}
+                                            className="px-4 py-2 bg-gray-500 hover:bg-gray-600 text-white rounded-lg transition duration-300 font-medium text-sm"
+                                            disabled={loading}
+                                        >
+                                            ← Start Over
+                                        </button>
+                                        
+                                        <button
+                                            onClick={() => router.push('/my-models')}
+                                            className="px-4 py-2 bg-gray-500 hover:bg-gray-600 text-white rounded-lg transition duration-300 font-medium text-sm"
+                                        >
+                                            📁 My Models
+                                        </button>
+                                    </div>
                                 </div>
-                            )}
+                            </div>
                         </div>
-                        
-                        {fileData?.fileUrl && (
-                            <div className="border-4 border-gray-200 rounded-xl overflow-hidden shadow-inner" style={{ minHeight: '600px' }}>
-                                <GlbViewer fileURL={fileData.fileUrl} width="100%" height="600px" />
-                            </div>
-                        )}
-                        
-                        {fileData?.fileUrl && (
-                            <div className="mt-6 flex items-center space-x-3">
-                                <a 
-                                    href={fileData.fileUrl} 
-                                    target="_blank" 
-                                    rel="noopener noreferrer"
-                                    className="flex-1 px-6 py-3 bg-blue-500 hover:bg-blue-600 text-white text-center rounded-lg transition duration-300 font-medium shadow-md"
-                                >
-                                    📥 Download Model
-                                </a>
-                                <button
-                                    onClick={async () => {
-                                        try {
-                                            await navigator.clipboard.writeText(fileData.fileUrl);
-                                            toast.success('URL copied to clipboard!');
-                                        } catch (error) {
-                                            console.error('Failed to copy URL:', error);
-                                            toast.error('Failed to copy URL. Please copy manually.');
-                                        }
-                                    }}
-                                    className="px-6 py-3 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-lg transition duration-300 font-medium shadow-md"
-                                    title="Copy URL to clipboard"
-                                >
-                                    📋 Copy URL
-                                </button>
-                            </div>
-                        )}
                     </div>
                     
-                    {/* Options Section */}
-                    <div className="bg-white rounded-2xl shadow-lg p-8 animate-slideUp">
-                        <h2 className="text-2xl font-bold mb-6 text-gray-800">Refinement Options</h2>
-                        
-                        <div className="space-y-6">
-                            {/* Regenerate Model Section */}
-                            <div className="bg-gradient-to-r from-purple-50 to-blue-50 p-6 rounded-lg border-2 border-purple-200">
-                                <h3 className="text-xl font-bold mb-3 text-gray-800">🔄 Regenerate Model with Refinements</h3>
-                                <p className="text-sm text-gray-600 mb-4">
-                                    Describe how you'd like to improve or modify the model. The conversation context will be used to generate a new model.
-                                </p>
-                                <textarea
-                                    value={refinementPrompt}
-                                    onChange={(e) => setRefinementPrompt(e.target.value)}
-                                    placeholder="e.g., make it bigger, add more details, change the shape to be rounder..."
-                                    className="w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 mb-3"
-                                    rows="3"
-                                    maxLength="600"
-                                    disabled={regenerating}
-                                />
-                                <div className="flex justify-between items-center mb-3">
-                                    <p className="text-sm text-gray-500">
-                                        {refinementPrompt.length}/600 characters
-                                    </p>
-                                    <button
-                                        onClick={handleRegenerateModel}
-                                        disabled={regenerating || !refinementPrompt.trim()}
-                                        className="px-6 py-3 bg-purple-500 hover:bg-purple-600 text-white rounded-lg transition duration-300 disabled:bg-gray-300 font-bold shadow-md"
-                                    >
-                                        {regenerating ? 'Regenerating...' : '🔄 Regenerate Model'}
-                                    </button>
-                                </div>
-                                {regenerating && (
-                                    <div className="mt-3 bg-purple-100 border border-purple-400 text-purple-700 px-4 py-3 rounded-lg">
-                                        <p className="font-bold">Regenerating model...</p>
-                                        <p className="text-sm">This will take 1-2 minutes. Cost: 5 tokens</p>
+                    {/* Main content - Model Preview - 1/3 width on large screens, center */}
+                    <div className="lg:col-span-1">
+                        <div className="bg-white rounded-2xl shadow-2xl p-6 animate-slideIn">
+                            <div className="flex justify-between items-center mb-4">
+                                <h2 className="text-2xl font-bold text-gray-800">3D Model</h2>
+                                {costEstimate && (
+                                    <div className="bg-green-100 px-4 py-2 rounded-lg">
+                                        <p className="text-xs text-green-700 font-medium">Estimated Cost</p>
+                                        <p className="text-lg font-bold text-green-600">
+                                            ${costEstimate.totalPrice || 'N/A'}
+                                        </p>
                                     </div>
                                 )}
                             </div>
-
-                            {/* Divider */}
-                            <div className="border-t-2 border-gray-200 my-6"></div>
-
-                            {/* Texture Refinement Section */}
-                            <div>
-                                <h3 className="text-xl font-bold mb-3 text-gray-800">🎨 Refine Texture</h3>
-                                <label className="block text-gray-700 font-bold mb-2">
-                                    Texture Description (Optional)
-                                </label>
-                                <textarea
-                                    value={texturePrompt}
-                                    onChange={(e) => setTexturePrompt(e.target.value)}
-                                    placeholder="e.g., metallic silver finish, wooden texture, colorful paint..."
-                                    className="w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                    rows="3"
-                                    maxLength="600"
-                                    disabled={refining}
-                                />
-                                <p className="text-sm text-gray-500 mt-1">
-                                    {texturePrompt.length}/600 characters
-                                </p>
-                            </div>
                             
-                            <div>
-                                <label className="flex items-center space-x-2">
-                                    <input
-                                        type="checkbox"
-                                        checked={enablePBR}
-                                        onChange={(e) => setEnablePBR(e.target.checked)}
-                                        className="w-5 h-5"
-                                        disabled={refining}
-                                    />
-                                    <span className="text-gray-700 font-medium">
-                                        Enable PBR Materials (metallic, roughness, normal maps)
-                                    </span>
-                                </label>
-                            </div>
-                            
-                            <div className="mb-6">
-                                <AdvancedRefineOptions
-                                    options={advancedOptions}
-                                    onChange={setAdvancedOptions}
-                                    disabled={refining}
-                                />
-                            </div>
-                            
-                            {refining && (
-                                <div className="bg-blue-100 border border-blue-400 text-blue-700 px-4 py-3 rounded-lg">
-                                    <p className="font-bold">Refining model...</p>
-                                    <p className="text-sm">This will take 1-2 minutes. Cost: 15 tokens</p>
+                            {fileData?.fileUrl && (
+                                <div className="border-4 border-gray-200 rounded-xl overflow-hidden shadow-inner" style={{ minHeight: '500px' }}>
+                                    <GlbViewer fileURL={fileData.fileUrl} width="100%" height="500px" />
                                 </div>
                             )}
                             
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                <button
-                                    onClick={handleRefine}
-                                    disabled={refining || !fileData?.meshyTaskId}
-                                    className="px-6 py-4 bg-purple-500 hover:bg-purple-600 text-white rounded-lg transition duration-300 disabled:bg-gray-300 font-bold shadow-md"
-                                >
-                                    {refining ? 'Refining...' : '✨ Refine Texture'}
-                                </button>
-                                
-                                <button
-                                    onClick={handleGetEstimate}
-                                    disabled={estimating || !fileData?.fileUrl}
-                                    className="px-6 py-4 bg-green-500 hover:bg-green-600 text-white rounded-lg transition duration-300 disabled:bg-gray-300 font-bold shadow-md"
-                                >
-                                    {estimating ? 'Estimating...' : '💰 Get Estimate'}
-                                </button>
-                                
-                                <button
-                                    onClick={handleProceedToPayment}
-                                    disabled={!costEstimate}
-                                    className="px-6 py-4 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition duration-300 disabled:bg-gray-300 font-bold shadow-md"
-                                >
-                                    🛒 Place Order
-                                </button>
-                            </div>
-                            
-                            <div className="flex justify-between pt-6 border-t">
-                                <button
-                                    onClick={() => router.push('/generate')}
-                                    className="px-6 py-3 bg-gray-500 hover:bg-gray-600 text-white rounded-lg transition duration-300 font-medium"
-                                    disabled={loading}
-                                >
-                                    ← Start Over
-                                </button>
-                                
-                                <button
-                                    onClick={() => router.push('/my-models')}
-                                    className="px-6 py-3 bg-gray-500 hover:bg-gray-600 text-white rounded-lg transition duration-300 font-medium"
-                                >
-                                    📁 My Models
-                                </button>
-                            </div>
+                            {fileData?.fileUrl && (
+                                <div className="mt-4 flex flex-col space-y-2">
+                                    <a 
+                                        href={fileData.fileUrl} 
+                                        target="_blank" 
+                                        rel="noopener noreferrer"
+                                        className="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white text-center rounded-lg transition duration-300 font-medium shadow-md text-sm"
+                                    >
+                                        📥 Download Model
+                                    </a>
+                                    <button
+                                        onClick={async () => {
+                                            try {
+                                                await navigator.clipboard.writeText(fileData.fileUrl);
+                                                toast.success('URL copied to clipboard!');
+                                            } catch (error) {
+                                                console.error('Failed to copy URL:', error);
+                                                toast.error('Failed to copy URL. Please copy manually.');
+                                            }
+                                        }}
+                                        className="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-lg transition duration-300 font-medium shadow-md text-sm"
+                                        title="Copy URL to clipboard"
+                                    >
+                                        📋 Copy URL
+                                    </button>
+                                </div>
+                            )}
                         </div>
                     </div>
-                    </div>
                     
-                    {/* Chat Sidebar - 1/3 width on large screens */}
+                    {/* Chat Sidebar - 1/3 width on large screens, right side */}
                     <div className="lg:col-span-1">
                         <div className="sticky top-8" style={{ height: 'calc(100vh - 8rem)' }}>
                             <ChatWindow 
