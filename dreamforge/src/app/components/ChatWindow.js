@@ -145,36 +145,13 @@ const ChatWindow = ({ onClose, onGenerateIdea, isModal = true }) => {
         setGeneratingPrompt(true);
         
         try {
-            // Call ChatGPT to condense the idea into a Meshy-compatible prompt
-            const response = await fetch('/api/chat', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    messages: [
-                        {
-                            role: 'system',
-                            content: 'You are a helpful assistant that converts conversational descriptions into concise 3D model generation prompts. Extract the core design elements and create a clear, descriptive prompt suitable for AI 3D model generation. Keep it under 600 characters and focus on physical attributes, style, and key features.'
-                        },
-                        {
-                            role: 'user',
-                            content: `Please convert this conversation snippet into a concise 3D model generation prompt (max 600 characters). Focus on the physical design, style, and key features:\n\n"${lastAssistantMessage.content}"`
-                        }
-                    ]
-                })
-            });
+            // Use the assistant message directly as the prompt
+            // It's already limited to 600 characters by the chat API
+            const prompt = lastAssistantMessage.content;
 
-            if (!response.ok) {
-                throw new Error('Failed to generate prompt');
-            }
-
-            const data = await response.json();
-            const condensedPrompt = data.message;
-
-            // Call the parent's generation handler with the condensed prompt
+            // Call the parent's generation handler with the prompt
             if (onGenerateIdea) {
-                await onGenerateIdea(condensedPrompt);
+                await onGenerateIdea(prompt);
             }
         } catch (error) {
             console.error('Error generating idea:', error);
