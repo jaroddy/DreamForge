@@ -104,10 +104,10 @@ class MeshyService {
         }
     }
     
-    async pollTask(taskId, maxAttempts = 60, intervalMs = 5000) {
+    async pollTask(taskId, maxAttempts = 60, intervalMs = 15000) {
         /**
          * Poll a task until it's complete or fails
-         * maxAttempts: 60 attempts * 5 seconds = 5 minutes max
+         * maxAttempts: 60 attempts * 15 seconds = 15 minutes max
          */
         for (let i = 0; i < maxAttempts; i++) {
             const task = await this.getTask(taskId);
