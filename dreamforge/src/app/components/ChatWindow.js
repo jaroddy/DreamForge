@@ -26,15 +26,20 @@ const ChatWindow = ({ onClose, onGenerateIdea, isModal = true }) => {
     }, [messages]);
 
     useEffect(() => {
-        // Send initial greeting if no messages yet and haven't greeted yet
-        if (!hasGreeted && messages.length === 0) {
+        // Send initial greeting only once when component first mounts and there are no messages
+        // If messages already exist, we've already greeted in a previous instance
+        if (messages.length === 0 && !hasGreeted) {
             console.log('[ChatWindow] Adding initial greeting message');
             setHasGreeted(true);
             const greeting = "Hi! I'd love to learn more about the 3D model you're creating. What inspired you to make this model? Or, if you'd like, we can just chat about how you're doing today!";
             addMessage('assistant', greeting);
+        } else if (messages.length > 0 && !hasGreeted) {
+            // If there are already messages when this component mounts, mark as greeted
+            console.log('[ChatWindow] Messages already exist, skipping greeting');
+            setHasGreeted(true);
         }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [hasGreeted]);
+    }, []);
 
     const sendMessage = async () => {
         if (!input.trim() || loading) return;
