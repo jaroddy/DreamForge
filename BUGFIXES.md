@@ -82,6 +82,47 @@ This document describes the bug fixes and improvements made to the DreamForge ap
 - `dreamforge/src/app/generate/page.js`
 - `dreamforge/src/app/refine/page.js`
 
+### 6. Fixed ChatGPT and Meshy Character Limit Issues
+
+**Problem:** ChatGPT responses were being augmented with additional instructional text before being sent to Meshy, causing the total prompt to exceed Meshy's 600 character limit even when the ChatGPT response itself was only ~300 characters.
+
+**Root Cause:** 
+- In `conversationContext.js`, the `getAugmentedPrompt()` function was adding 138-185 characters of augmentation text like "Please use the following ChatGPT message to form a better understanding of the model..."
+- This augmentation combined with the ChatGPT response frequently exceeded 600 characters
+- ChatGPT responses themselves had no character limit enforcement
+
+**Solution:**
+1. **ChatGPT API Enforcement** (`dreamforge/pages/api/chat.js`):
+   - Updated system message to include "CRITICAL: Your responses must be 600 characters or less"
+   - Increased `max_tokens` from 150 to 200 to allow full 600 character responses (~3 chars/token average)
+   - Added post-response validation that truncates responses exceeding 600 characters
+   - Implemented intelligent sentence boundary detection to avoid cutting mid-sentence
+
+2. **Removed Prompt Augmentation** (`dreamforge/src/app/context/conversationContext.js`):
+   - Removed all augmentation logic from `getAugmentedPrompt()`
+   - Function now returns only the base prompt without additional context text
+   - Added simple validation to ensure prompts don't exceed 600 characters
+   - Removed dependencies on `messages` and `artisticMode` state
+
+**Impact:**
+- ✅ ChatGPT responses guaranteed to be ≤600 characters
+- ✅ Meshy prompts sent without augmentation, strictly limited to 600 characters
+- ✅ No breaking changes, fully backward compatible
+- ✅ Users can now use the full 600 character limit without issues
+
+**Files Changed:**
+- `dreamforge/pages/api/chat.js`
+- `dreamforge/src/app/context/conversationContext.js`
+
+**Testing:**
+All tests passing (see `/tmp/test_character_limits.js`):
+- Messages under 600 chars remain unchanged
+- Messages over 600 chars truncated with smart sentence boundary detection
+- No augmentation added to prompts
+- Exact and over-limit prompts handled correctly
+
+**Security:** CodeQL scan clean - 0 alerts
+
 ## Technical Details
 
 ### Meshy API Parameters Added
