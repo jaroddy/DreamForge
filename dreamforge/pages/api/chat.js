@@ -33,7 +33,7 @@ export default async function handler(req, res) {
 
         const systemMessage = {
             role: 'system',
-            content: 'You are a friendly and creative assistant helping users create 3D models. Ask thoughtful questions about their model ideas or engage in casual conversation if they prefer. Be encouraging and helpful. Keep responses concise (2-3 sentences).'
+            content: 'You are a friendly and creative assistant helping users create 3D models. Ask thoughtful questions about their model ideas or engage in casual conversation if they prefer. Be encouraging and helpful. Keep responses concise (2-3 sentences). CRITICAL: Your responses must be 600 characters or less.'
         };
 
         const allMessages = [systemMessage, ...messages];
@@ -56,7 +56,7 @@ export default async function handler(req, res) {
                 model: 'gpt-4o-mini',
                 messages: allMessages,
                 temperature: 0.8,
-                max_tokens: 150
+                max_tokens: 200  // Increased to allow ~600 chars (avg 3 chars/token)
             })
         });
 
@@ -89,8 +89,22 @@ export default async function handler(req, res) {
             });
         }
 
-        const assistantMessage = data.choices[0].message.content;
+        let assistantMessage = data.choices[0].message.content;
         console.log('[ChatGPT API] Successfully generated response, length:', assistantMessage.length, 'characters');
+
+        // Enforce 600 character maximum for all responses
+        if (assistantMessage.length > 600) {
+            console.log('[ChatGPT API] Response exceeds 600 characters, truncating from', assistantMessage.length, 'to 600');
+            assistantMessage = assistantMessage.substring(0, 600).trim();
+            // Try to end at a sentence boundary if possible
+            const lastPeriod = assistantMessage.lastIndexOf('.');
+            const lastQuestion = assistantMessage.lastIndexOf('?');
+            const lastExclamation = assistantMessage.lastIndexOf('!');
+            const lastSentence = Math.max(lastPeriod, lastQuestion, lastExclamation);
+            if (lastSentence > 500) {  // Only use sentence boundary if we keep most of the text
+                assistantMessage = assistantMessage.substring(0, lastSentence + 1);
+            }
+        }
 
         return res.status(200).json({
             message: assistantMessage,
