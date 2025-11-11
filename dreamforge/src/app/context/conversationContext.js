@@ -41,11 +41,21 @@ export const ConversationProvider = ({ children }) => {
     }, [messages]);
     
     const getAugmentedPrompt = useCallback((basePrompt) => {
-        let conversationText = getConversationText();
+        // Find the last assistant (ChatGPT) message in the conversation
+        // We only send the last ChatGPT message to Meshy, not the entire conversation
+        const lastAssistantMessage = messages
+            .slice()
+            .reverse()
+            .find(msg => msg.role === 'assistant');
         
-        if (!conversationText) {
+        if (!lastAssistantMessage) {
+            console.log('[ConversationContext] No assistant message found, using base prompt only');
             return basePrompt;
         }
+        
+        // Extract only the last assistant message content
+        let conversationText = lastAssistantMessage.content;
+        console.log('[ConversationContext] Using last assistant message for Meshy:', conversationText.substring(0, 50) + (conversationText.length > 50 ? '...' : ''));
         
         // Trim conversation text to stay within 600 character limit
         if (conversationText.length > MAX_CONVERSATION_LENGTH) {
@@ -57,11 +67,11 @@ export const ConversationProvider = ({ children }) => {
         }
         
         if (artisticMode) {
-            return `${basePrompt}\n\nPlease use the conversation below to form an artistic understanding of the user and how they are feeling, and express that as a beautiful and professionally created 3D model that represents them:\n\n${conversationText}`;
+            return `${basePrompt}\n\nPlease use the following ChatGPT message to form an artistic understanding of the user and how they are feeling, and express that as a beautiful and professionally created 3D model that represents them:\n\n${conversationText}`;
         } else {
-            return `${basePrompt}\n\nPlease use the conversation below to form a better understanding of the model that you should be supplying, and based on that conversation amend the model:\n\n${conversationText}`;
+            return `${basePrompt}\n\nPlease use the following ChatGPT message to form a better understanding of the model that you should be supplying, and based on that message amend the model:\n\n${conversationText}`;
         }
-    }, [getConversationText, artisticMode]);
+    }, [messages, artisticMode]);
     
     return (
         <ConversationContext.Provider value={{ 
