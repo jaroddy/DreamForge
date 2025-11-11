@@ -2,11 +2,12 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useConversation } from '../context/conversationContext';
 
-const ChatWindow = ({ onClose }) => {
+const ChatWindow = ({ onClose, onGenerateIdea, isModal = true }) => {
     const { messages, addMessage } = useConversation();
     const [input, setInput] = useState('');
     const [loading, setLoading] = useState(false);
     const [hasGreeted, setHasGreeted] = useState(false);
+    const [generatingPrompt, setGeneratingPrompt] = useState(false);
     const messagesEndRef = useRef(null);
 
     const scrollToBottom = () => {
@@ -125,24 +126,87 @@ const ChatWindow = ({ onClose }) => {
         }
     };
 
+    const handleGenerateIdea = async () => {
+        // Get the last assistant message
+        const lastAssistantMessage = messages
+            .slice()
+            .reverse()
+            .find(msg => msg.role === 'assistant');
+        
+        if (!lastAssistantMessage) {
+            return;
+        }
+
+        setGeneratingPrompt(true);
+        
+        try {
+            // Call ChatGPT to condense the idea into a Meshy-compatible prompt
+            const response = await fetch('/api/chat', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    messages: [
+                        {
+                            role: 'system',
+                            content: 'You are a helpful assistant that converts conversational descriptions into concise 3D model generation prompts. Extract the core design elements and create a clear, descriptive prompt suitable for AI 3D model generation. Keep it under 600 characters and focus on physical attributes, style, and key features.'
+                        },
+                        {
+                            role: 'user',
+                            content: `Please convert this conversation snippet into a concise 3D model generation prompt (max 600 characters). Focus on the physical design, style, and key features:\n\n"${lastAssistantMessage.content}"`
+                        }
+                    ]
+                })
+            });
+
+            if (!response.ok) {
+                throw new Error('Failed to generate prompt');
+            }
+
+            const data = await response.json();
+            const condensedPrompt = data.message;
+
+            // Call the parent's generation handler with the condensed prompt
+            if (onGenerateIdea) {
+                await onGenerateIdea(condensedPrompt);
+            }
+        } catch (error) {
+            console.error('Error generating idea:', error);
+            addMessage('assistant', "Sorry, I couldn't generate a model from that idea. Please try describing it differently.");
+        } finally {
+            setGeneratingPrompt(false);
+        }
+    };
+
+    const containerClass = isModal 
+        ? "fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+        : "w-full h-full";
+    
+    const innerClass = isModal
+        ? "bg-white rounded-2xl shadow-2xl w-full max-w-2xl h-[600px] flex flex-col"
+        : "bg-white rounded-xl shadow-lg w-full h-full flex flex-col";
+
     return (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl h-[600px] flex flex-col">
+        <div className={containerClass}>
+            <div className={innerClass}>
                 {/* Header */}
-                <div className="bg-gradient-to-r from-purple-500 to-blue-500 text-white p-4 rounded-t-2xl flex justify-between items-center">
+                <div className={`bg-gradient-to-r from-purple-500 to-blue-500 text-white p-4 ${isModal ? 'rounded-t-2xl' : 'rounded-t-xl'} flex justify-between items-center`}>
                     <div>
                         <h2 className="text-xl font-bold">Chat Assistant</h2>
                         <p className="text-sm opacity-90">Let's talk about your model</p>
                     </div>
-                    <button
-                        onClick={onClose}
-                        className="text-white hover:bg-white hover:bg-opacity-20 rounded-full p-2 transition duration-200"
-                        aria-label="Close chat"
-                    >
-                        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                        </svg>
-                    </button>
+                    {isModal && onClose && (
+                        <button
+                            onClick={onClose}
+                            className="text-white hover:bg-white hover:bg-opacity-20 rounded-full p-2 transition duration-200"
+                            aria-label="Close chat"
+                        >
+                            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                        </button>
+                    )}
                 </div>
 
                 {/* Messages */}
@@ -179,6 +243,18 @@ const ChatWindow = ({ onClose }) => {
 
                 {/* Input */}
                 <div className="border-t p-4">
+                    {onGenerateIdea && (
+                        <div className="mb-3">
+                            <button
+                                onClick={handleGenerateIdea}
+                                disabled={generatingPrompt || loading || messages.length === 0}
+                                className="w-full px-4 py-2 bg-gradient-to-r from-purple-500 to-blue-500 hover:from-purple-600 hover:to-blue-600 text-white rounded-lg font-semibold transition duration-200 disabled:bg-gray-300 disabled:cursor-not-allowed flex items-center justify-center space-x-2"
+                            >
+                                <span>✨</span>
+                                <span>{generatingPrompt ? 'Generating...' : 'Generate This Idea'}</span>
+                            </button>
+                        </div>
+                    )}
                     <div className="flex space-x-2">
                         <input
                             type="text"
