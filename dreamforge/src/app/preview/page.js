@@ -1,6 +1,6 @@
 // Preview.js
 'use client'
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useFileUrl } from '../context/fileUrlContext';
 import { useTokens } from '../context/tokenContext';
