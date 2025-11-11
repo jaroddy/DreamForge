@@ -29,7 +29,6 @@ const RefinePage = () => {
     const [estimating, setEstimating] = useState(false);
     const [costEstimate, setCostEstimate] = useState(null);
     const [refinementPrompt, setRefinementPrompt] = useState('');
-    const [showChat, setShowChat] = useState(false);
     const [advancedOptions, setAdvancedOptions] = useState({
         ai_model: 'meshy-5'
     });
@@ -235,21 +234,95 @@ const RefinePage = () => {
         }
     };
 
+    const handleGenerateIdeaFromChat = async (condensedPrompt) => {
+        if (!condensedPrompt || condensedPrompt.trim().length < 3) {
+            toast.error('Generated prompt is too short');
+            return;
+        }
+
+        if (condensedPrompt.length > 600) {
+            // Truncate if still too long
+            condensedPrompt = condensedPrompt.substring(0, 600);
+        }
+
+        setRegenerating(true);
+        setLoading(true);
+
+        try {
+            const meshyService = new MeshyService();
+            
+            // Get augmented prompt with conversation context
+            const finalPrompt = getAugmentedPrompt(condensedPrompt.trim());
+            
+            // Create new preview task
+            const requestData = {
+                prompt: finalPrompt,
+                art_style: fileData.meshyData?.art_style || 'realistic',
+                ai_model: 'meshy-5',
+                topology: 'triangle',
+                target_polycount: 30000,
+                should_remesh: true
+            };
+            
+            const result = await meshyService.createPreview(requestData);
+
+            if (result.success && result.task_id) {
+                // Calculate and add tokens
+                addTokens(5);
+                
+                toast.info('Generating model from chat idea... This will take 1-2 minutes.');
+                
+                // Poll for completion
+                const completedTask = await meshyService.pollTask(result.task_id);
+                
+                if (completedTask.status === 'SUCCEEDED') {
+                    toast.success('Model generated successfully from chat!');
+                    
+                    // Update file data with new model
+                    const modelUrl = completedTask.model_urls?.glb || completedTask.model_urls?.obj || '';
+                    setFileData({
+                        fileUrl: getProxiedUrl(modelUrl),
+                        meshyTaskId: result.task_id,
+                        meshyData: completedTask,
+                        filename: `${sanitizeFilename(condensedPrompt)}.glb`,
+                        isMeshyModel: true
+                    });
+                    
+                    // Clear cost estimate as model changed
+                    setCostEstimate(null);
+                    setRegenerating(false);
+                    setLoading(false);
+                } else {
+                    toast.error('Model generation failed');
+                    setRegenerating(false);
+                    setLoading(false);
+                }
+            }
+        } catch (error) {
+            console.error('Error generating model from chat:', error);
+            console.error('Error details:', error.response?.data);
+            
+            toast.error(parseErrorMessage(error, 'Failed to generate model from chat'));
+            setRegenerating(false);
+            setLoading(false);
+        }
+    };
+
     return (
         <div className="min-h-screen bg-gradient-to-bl from-blue-500 to-gray-100 transition-opacity duration-500">
             <ToastContainer position={toast.POSITION.TOP_RIGHT} />
             <TokenDisplay />
-            
-            {showChat && <ChatWindow onClose={() => setShowChat(false)} />}
             
             <div className="container mx-auto px-4 py-8">
                 <h1 className="text-4xl font-bold text-white text-center mb-8 animate-fadeIn">
                     Refine Your Model
                 </h1>
                 
-                <div className="max-w-7xl mx-auto">
+                <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    {/* Main content - 2/3 width on large screens */}
+                    <div className="lg:col-span-2 space-y-6">
                     {/* Dominant Model Preview */}
-                    <div className="bg-white rounded-2xl shadow-2xl p-8 mb-8 animate-slideIn">
+                    <div className="bg-white rounded-2xl shadow-2xl p-8 animate-slideIn">
                         <div className="flex justify-between items-center mb-6">
                             <h2 className="text-3xl font-bold text-gray-800">3D Model Preview</h2>
                             {costEstimate && (
@@ -329,14 +402,6 @@ const RefinePage = () => {
                                         {regenerating ? 'Regenerating...' : '🔄 Regenerate Model'}
                                     </button>
                                 </div>
-                                <button
-                                    onClick={() => setShowChat(true)}
-                                    className="w-full px-4 py-3 bg-purple-100 hover:bg-purple-200 text-purple-700 rounded-lg font-medium transition duration-200 flex items-center justify-center space-x-2"
-                                    disabled={loading}
-                                >
-                                    <span>💬</span>
-                                    <span>Chat to Refine Your Ideas</span>
-                                </button>
                                 {regenerating && (
                                     <div className="mt-3 bg-purple-100 border border-purple-400 text-purple-700 px-4 py-3 rounded-lg">
                                         <p className="font-bold">Regenerating model...</p>
@@ -440,6 +505,17 @@ const RefinePage = () => {
                                     📁 My Models
                                 </button>
                             </div>
+                        </div>
+                    </div>
+                    </div>
+                    
+                    {/* Chat Sidebar - 1/3 width on large screens */}
+                    <div className="lg:col-span-1">
+                        <div className="sticky top-8" style={{ height: 'calc(100vh - 8rem)' }}>
+                            <ChatWindow 
+                                onGenerateIdea={handleGenerateIdeaFromChat}
+                                isModal={false}
+                            />
                         </div>
                     </div>
                 </div>
