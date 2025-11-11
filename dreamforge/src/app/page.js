@@ -1,9 +1,30 @@
 'use client'
 import FileUploadComponent from './components/uploadFIleModal';
 import { useRouter } from 'next/navigation';
+import { useAuth } from './context/authContext';
+import { useEffect } from 'react';
 
 const Home = () => {
   const router = useRouter();
+  const { currentUser, loading } = useAuth();
+
+  useEffect(() => {
+    if (!loading && !currentUser) {
+      router.push('/login');
+    }
+  }, [currentUser, loading, router]);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-bl from-blue-500 to-gray-100 flex items-center justify-center">
+        <div className="text-white text-2xl">Loading...</div>
+      </div>
+    );
+  }
+
+  if (!currentUser) {
+    return null;
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-bl from-blue-500 to-gray-100 transition-opacity duration-500">

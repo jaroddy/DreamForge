@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import MeshyService, { getProxiedUrl } from '../services/meshyService';
 import { useFileUrl } from '../context/fileUrlContext';
-import { useTokens } from '../context/tokenContext';
+import { useAuth } from '../context/authContext';
 import { useConversation } from '../context/conversationContext';
 import TokenDisplay from '../components/TokenDisplay';
 import AdvancedPreviewOptions from '../components/AdvancedPreviewOptions';
@@ -17,7 +17,7 @@ const FILENAME_MAX_LENGTH = 30;
 const GeneratePage = () => {
     const router = useRouter();
     const { setFileData } = useFileUrl();
-    const { addTokens } = useTokens();
+    const { addTokens } = useAuth();
     const { artisticMode, setArtisticMode, getAugmentedPrompt } = useConversation();
     const [prompt, setPrompt] = useState('');
     const [artStyle, setArtStyle] = useState('realistic');
