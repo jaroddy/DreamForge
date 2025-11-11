@@ -69,14 +69,24 @@ class ApiService {
         }
     }
     
-    async createCheckoutSession(amount, description, currency = 'usd', metadata = {}) {
+    async createCheckoutSession(amount, description, currency = 'usd', metadata = {}, successUrl = null, cancelUrl = null) {
         try {
-            const response = await this.client.post('/api/stripe/create-checkout-session', {
+            const payload = {
                 amount,
                 description,
                 currency,
                 metadata
-            });
+            };
+            
+            if (successUrl) {
+                payload.success_url = successUrl;
+            }
+            
+            if (cancelUrl) {
+                payload.cancel_url = cancelUrl;
+            }
+            
+            const response = await this.client.post('/api/stripe/create-checkout-session', payload);
             return response.data;
         } catch (error) {
             console.error('Error creating checkout session:', error);

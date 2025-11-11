@@ -5,7 +5,7 @@ import dynamic from 'next/dynamic';
 import MeshyService, { getProxiedUrl } from '../services/meshyService';
 import ApiService from '../services/apiService';
 import { useFileUrl } from '../context/fileUrlContext';
-import { useTokens } from '../context/tokenContext';
+import { useAuth } from '../context/authContext';
 import { useConversation } from '../context/conversationContext';
 import TokenDisplay from '../components/TokenDisplay';
 import AdvancedRefineOptions from '../components/AdvancedRefineOptions';
@@ -19,7 +19,7 @@ const GlbViewer = dynamic(() => import('../components/glbViewer'), { ssr: false 
 const RefinePage = () => {
     const router = useRouter();
     const { fileData, setFileData } = useFileUrl();
-    const { addTokens } = useTokens();
+    const { addTokens } = useAuth();
     const { getAugmentedPrompt } = useConversation();
     const [texturePrompt, setTexturePrompt] = useState('');
     const [enablePBR, setEnablePBR] = useState(false);
@@ -320,11 +320,23 @@ const RefinePage = () => {
                 type: 'token_purchase'
             };
             
-            const result = await apiService.createCheckoutSession(amount, description, 'usd', metadata);
+            // Construct success URL with token_purchase flag
+            const successUrl = `${window.location.origin}/success?token_purchase=true&session_id={CHECKOUT_SESSION_ID}`;
+            const cancelUrl = `${window.location.origin}/refine?canceled=true`;
+            
+            const result = await apiService.createCheckoutSession(
+                amount, 
+                description, 
+                'usd', 
+                metadata,
+                successUrl,
+                cancelUrl
+            );
             
             if (result.success && result.url) {
-                // Redirect to Stripe checkout
-                window.location.href = result.url;
+                // Open Stripe checkout in a new tab so users can keep their session
+                window.open(result.url, '_blank');
+                toast.info('Payment page opened in new tab. Complete the payment to receive 200 tokens.');
             } else {
                 toast.error('Failed to create checkout session');
             }
@@ -344,8 +356,8 @@ const RefinePage = () => {
                     Refine Your Model
                 </h1>
                 
-                <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-3 gap-6">
-                    {/* Refinement Options - 1/3 width on large screens, left side */}
+                <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-4 gap-6">
+                    {/* Refinement Options - 1/4 width on large screens, left side */}
                     <div className="lg:col-span-1">
                         <div className="sticky top-8">
                             <div className="bg-white rounded-2xl shadow-lg p-8 animate-slideUp">
@@ -504,8 +516,8 @@ const RefinePage = () => {
                         </div>
                     </div>
                     
-                    {/* Main content - Model Preview - 1/3 width on large screens, center */}
-                    <div className="lg:col-span-1">
+                    {/* Main content - Model Preview - 2/3 width on large screens, wider and taller */}
+                    <div className="lg:col-span-2">
                         <div className="bg-white rounded-2xl shadow-2xl p-6 animate-slideIn">
                             <div className="flex justify-between items-center mb-4">
                                 <h2 className="text-2xl font-bold text-gray-800">3D Model</h2>
@@ -520,8 +532,8 @@ const RefinePage = () => {
                             </div>
                             
                             {fileData?.fileUrl && (
-                                <div className="border-4 border-gray-200 rounded-xl overflow-hidden shadow-inner" style={{ minHeight: '500px' }}>
-                                    <GlbViewer fileURL={fileData.fileUrl} width="100%" height="500px" />
+                                <div className="border-4 border-gray-200 rounded-xl overflow-hidden shadow-inner" style={{ minHeight: '600px' }}>
+                                    <GlbViewer fileURL={fileData.fileUrl} width="100%" height="600px" />
                                 </div>
                             )}
                             
@@ -555,7 +567,7 @@ const RefinePage = () => {
                         </div>
                     </div>
                     
-                    {/* Chat Sidebar - 1/3 width on large screens, right side */}
+                    {/* Chat Sidebar - 1/4 width on large screens, right side */}
                     <div className="lg:col-span-1">
                         <div className="sticky top-8" style={{ height: 'calc(100vh - 8rem)' }}>
                             <ChatWindow 
