@@ -22,8 +22,14 @@ const Preview = () => {
   const { fileData, setFileData } = useFileUrl();
   const { fileUrl, slicerApiResponse } = fileData;
   const { addTokens } = useTokens();
-  const { getAugmentedPrompt } = useConversation();
+  const { getAugmentedPrompt, clearConversation } = useConversation();
   const [loading, setLoading] = useState(false);
+
+  // Reset chat when navigating to preview page
+  useEffect(() => {
+    console.log('[Preview] Clearing conversation on mount');
+    clearConversation();
+  }, [clearConversation]);
 
   const handleNext = () => {
     router.push('/payment');
