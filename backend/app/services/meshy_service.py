@@ -29,6 +29,11 @@ class MeshyService:
         """
         Create a Text to 3D Preview task
         """
+        # Ensure prompt is within 600 character limit for Meshy
+        if len(prompt) > 600:
+            print(f"[MeshyService] WARNING: Prompt length ({len(prompt)}) exceeds 600 characters. Truncating.")
+            prompt = prompt[:600]
+        
         payload = {
             "mode": "preview",
             "prompt": prompt,
@@ -50,6 +55,15 @@ class MeshyService:
         
         # Add any additional parameters
         payload.update(kwargs)
+        
+        # Log the payload being sent to Meshy
+        print("[MeshyService] ===== PREVIEW REQUEST TO MESHY =====")
+        print(f"[MeshyService] Prompt length: {len(prompt)} characters")
+        print(f"[MeshyService] Prompt: {prompt}")
+        print(f"[MeshyService] Art style: {art_style}")
+        print(f"[MeshyService] AI model: {ai_model}")
+        print(f"[MeshyService] Other params: topology={topology}, target_polycount={target_polycount}")
+        print("[MeshyService] =======================================")
         
         async with httpx.AsyncClient() as client:
             response = await client.post(
@@ -74,6 +88,11 @@ class MeshyService:
         """
         Create a Text to 3D Refine task
         """
+        # Ensure texture_prompt is within 600 character limit for Meshy
+        if texture_prompt and len(texture_prompt) > 600:
+            print(f"[MeshyService] WARNING: Texture prompt length ({len(texture_prompt)}) exceeds 600 characters. Truncating.")
+            texture_prompt = texture_prompt[:600]
+        
         payload = {
             "mode": "refine",
             "preview_task_id": preview_task_id,
@@ -91,6 +110,16 @@ class MeshyService:
         
         # Add any additional parameters
         payload.update(kwargs)
+        
+        # Log the payload being sent to Meshy
+        print("[MeshyService] ===== REFINE REQUEST TO MESHY =====")
+        print(f"[MeshyService] Preview task ID: {preview_task_id}")
+        if texture_prompt:
+            print(f"[MeshyService] Texture prompt length: {len(texture_prompt)} characters")
+            print(f"[MeshyService] Texture prompt: {texture_prompt}")
+        print(f"[MeshyService] Enable PBR: {enable_pbr}")
+        print(f"[MeshyService] AI model: {ai_model}")
+        print("[MeshyService] ======================================")
         
         async with httpx.AsyncClient() as client:
             response = await client.post(

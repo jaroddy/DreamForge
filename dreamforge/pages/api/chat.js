@@ -31,6 +31,21 @@ export default async function handler(req, res) {
         console.log('[ChatGPT API] Making request to OpenAI API...');
         const startTime = Date.now();
 
+        const systemMessage = {
+            role: 'system',
+            content: 'You are a friendly and creative assistant helping users create 3D models. Ask thoughtful questions about their model ideas or engage in casual conversation if they prefer. Be encouraging and helpful. Keep responses concise (2-3 sentences).'
+        };
+
+        const allMessages = [systemMessage, ...messages];
+        
+        // Log all messages being sent to OpenAI
+        console.log('[ChatGPT API] ===== MESSAGES SENT TO OPENAI =====');
+        console.log('[ChatGPT API] Total messages:', allMessages.length);
+        allMessages.forEach((msg, idx) => {
+            console.log(`[ChatGPT API] Message ${idx + 1} (${msg.role}):`, msg.content);
+        });
+        console.log('[ChatGPT API] ======================================');
+
         const response = await fetch('https://api.openai.com/v1/chat/completions', {
             method: 'POST',
             headers: {
@@ -39,13 +54,7 @@ export default async function handler(req, res) {
             },
             body: JSON.stringify({
                 model: 'gpt-4o-mini',
-                messages: [
-                    {
-                        role: 'system',
-                        content: 'You are a friendly and creative assistant helping users create 3D models. Ask thoughtful questions about their model ideas or engage in casual conversation if they prefer. Be encouraging and helpful. Keep responses concise (2-3 sentences).'
-                    },
-                    ...messages
-                ],
+                messages: allMessages,
                 temperature: 0.8,
                 max_tokens: 150
             })

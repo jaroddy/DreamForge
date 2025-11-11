@@ -80,6 +80,12 @@ async def create_preview(
     session_id = await SessionManager.get_or_create_session(request, db)
     if await SessionManager.check_session_abuse(session_id, db):
         raise HTTPException(status_code=403, detail="Session blocked")
+    
+    # Validate prompt length - Meshy has a 600 character limit
+    if len(preview_req.prompt) > 600:
+        logger.warning(f"Prompt exceeds 600 characters ({len(preview_req.prompt)}), truncating")
+        preview_req.prompt = preview_req.prompt[:600]
+    
     try:
         meshy_service = MeshyService()
         result = await meshy_service.create_preview(
@@ -126,6 +132,12 @@ async def create_refine(
     session_id = await SessionManager.get_or_create_session(request, db)
     if await SessionManager.check_session_abuse(session_id, db):
         raise HTTPException(status_code=403, detail="Session blocked")
+    
+    # Validate texture_prompt length - Meshy has a 600 character limit
+    if refine_req.texture_prompt and len(refine_req.texture_prompt) > 600:
+        logger.warning(f"Texture prompt exceeds 600 characters ({len(refine_req.texture_prompt)}), truncating")
+        refine_req.texture_prompt = refine_req.texture_prompt[:600]
+    
     try:
         meshy_service = MeshyService()
         result = await meshy_service.create_refine(
