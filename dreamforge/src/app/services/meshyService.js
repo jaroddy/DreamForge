@@ -109,19 +109,26 @@ class MeshyService {
          * Poll a task until it's complete or fails
          * maxAttempts: 60 attempts * 15 seconds = 15 minutes max
          */
+        console.log(`[MeshyService] Starting pollTask for ${taskId}, interval: ${intervalMs}ms (${intervalMs/1000}s)`);
+        
         for (let i = 0; i < maxAttempts; i++) {
+            console.log(`[MeshyService] Poll attempt ${i + 1}/${maxAttempts} for task ${taskId}`);
             const task = await this.getTask(taskId);
             
             if (task.status === 'SUCCEEDED') {
+                console.log(`[MeshyService] Task ${taskId} SUCCEEDED after ${i + 1} attempts`);
                 return task;
             } else if (task.status === 'FAILED') {
+                console.error(`[MeshyService] Task ${taskId} FAILED after ${i + 1} attempts`);
                 throw new Error('Task failed');
             }
             
+            console.log(`[MeshyService] Task ${taskId} status: ${task.status}, waiting ${intervalMs}ms before next poll`);
             // Wait before next poll
             await new Promise(resolve => setTimeout(resolve, intervalMs));
         }
         
+        console.error(`[MeshyService] Task ${taskId} timed out after ${maxAttempts} attempts`);
         throw new Error('Task timeout - took too long to complete');
     }
 }
