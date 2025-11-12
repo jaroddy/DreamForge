@@ -356,8 +356,8 @@ const RefinePage = () => {
                     Refine Your Model
                 </h1>
                 
-                <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-4 gap-6">
-                    {/* Refinement Options - 1/4 width on large screens, left side */}
+                <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-5 gap-6">
+                    {/* Refinement Options - 1/5 width on large screens, left side */}
                     <div className="lg:col-span-1">
                         <div className="sticky top-8">
                             <div className="bg-white rounded-2xl shadow-lg p-8 animate-slideUp">
@@ -516,8 +516,8 @@ const RefinePage = () => {
                         </div>
                     </div>
                     
-                    {/* Main content - Model Preview - 2/3 width on large screens, wider and taller */}
-                    <div className="lg:col-span-2">
+                    {/* Main content - Model Preview - 3/5 width on large screens, wider and taller */}
+                    <div className="lg:col-span-3">
                         <div className="bg-white rounded-2xl shadow-2xl p-6 animate-slideIn">
                             <div className="flex justify-between items-center mb-4">
                                 <h2 className="text-2xl font-bold text-gray-800">3D Model</h2>
@@ -532,8 +532,8 @@ const RefinePage = () => {
                             </div>
                             
                             {fileData?.fileUrl && (
-                                <div className="border-4 border-gray-200 rounded-xl overflow-hidden shadow-inner" style={{ minHeight: '600px' }}>
-                                    <GlbViewer fileURL={fileData.fileUrl} width="100%" height="600px" />
+                                <div className="border-4 border-gray-200 rounded-xl overflow-hidden shadow-inner" style={{ height: 'calc(100vh - 20rem)' }}>
+                                    <GlbViewer fileURL={fileData.fileUrl} width="100%" height="100%" />
                                 </div>
                             )}
                             
@@ -567,7 +567,7 @@ const RefinePage = () => {
                         </div>
                     </div>
                     
-                    {/* Chat Sidebar - 1/4 width on large screens, right side */}
+                    {/* Chat Sidebar - 1/5 width on large screens, right side */}
                     <div className="lg:col-span-1">
                         <div className="sticky top-8" style={{ height: 'calc(100vh - 8rem)' }}>
                             <ChatWindow 
